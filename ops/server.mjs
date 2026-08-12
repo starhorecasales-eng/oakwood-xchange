@@ -4,6 +4,10 @@ import { createServer, request as httpRequest } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { startProdServer } from "../node_modules/vinext/dist/server/prod-server.js";
+import {
+  canonicalHttpsUrl,
+  withSecurityHeaders,
+} from "./http-security.mjs";
 
 const projectDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const clientDir = path.join(projectDir, "dist", "client");
@@ -56,14 +60,13 @@ async function serveStatic(req, res) {
 
   const extension = path.extname(filename).toLowerCase();
   const isHashedAsset = req.url?.startsWith("/assets/");
-  res.writeHead(200, {
+  res.writeHead(200, withSecurityHeaders({
     "Cache-Control": isHashedAsset
       ? "public, max-age=31536000, immutable"
       : "public, max-age=3600",
     "Content-Length": info.size,
     "Content-Type": contentTypes.get(extension) ?? "application/octet-stream",
-    "X-Content-Type-Options": "nosniff",
-  });
+  }));
 
   if (req.method === "HEAD") {
     res.end();
@@ -104,20 +107,30 @@ function proxyToVinext(req, res) {
           delete headers["transfer-encoding"];
           headers["content-length"] = String(body.length);
           headers["cache-control"] = "no-cache";
-          res.writeHead(upstream.statusCode ?? 502, upstream.statusMessage, headers);
+          res.writeHead(
+            upstream.statusCode ?? 502,
+            upstream.statusMessage,
+            withSecurityHeaders(headers),
+          );
           res.end(body);
         });
         return;
       }
 
-      res.writeHead(upstream.statusCode ?? 502, upstream.statusMessage, upstream.headers);
+      res.writeHead(
+        upstream.statusCode ?? 502,
+        upstream.statusMessage,
+        withSecurityHeaders(upstream.headers),
+      );
       upstream.pipe(res);
     },
   );
 
   proxy.on("error", (error) => {
     console.error("[xchange] Internal server request failed:", error.message);
-    if (!res.headersSent) res.writeHead(502, { "Content-Type": "text/plain; charset=utf-8" });
+    if (!res.headersSent) {
+      res.writeHead(502, withSecurityHeaders({ "Content-Type": "text/plain; charset=utf-8" }));
+    }
     res.end("Bad Gateway");
   });
   req.pipe(proxy);
@@ -134,11 +147,20 @@ const vinext = await startProdServer({
 
 const server = createServer(async (req, res) => {
   try {
+    const redirectUrl = canonicalHttpsUrl(req);
+    if (redirectUrl) {
+      res.writeHead(308, withSecurityHeaders({ Location: redirectUrl }));
+      res.end();
+      return;
+    }
+
     if (await serveStatic(req, res)) return;
     proxyToVinext(req, res);
   } catch (error) {
     console.error("[xchange] Request failed:", error);
-    if (!res.headersSent) res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
+    if (!res.headersSent) {
+      res.writeHead(500, withSecurityHeaders({ "Content-Type": "text/plain; charset=utf-8" }));
+    }
     res.end("Internal Server Error");
   }
 });
