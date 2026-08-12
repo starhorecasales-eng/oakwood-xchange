@@ -1,14 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type StoredRate = {
   rate: number;
   date: string;
 };
 
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+};
+
 const STORAGE_KEY = "cebimde-kur-gbp-try";
+const INSTALL_DISMISSED_KEY = "cebimde-kur-install-dismissed";
 const RATE_URL = "https://api.frankfurter.dev/v2/rates?base=GBP&quotes=TRY";
+const PACKAGED_RATE: StoredRate = {
+  rate: 64.491,
+  date: "2026-08-12",
+};
 
 function parseAmount(value: string) {
   const normalized = value.trim().replace(/\s/g, "").replace(",", ".");
@@ -43,14 +53,21 @@ function readableDate(date: string) {
 }
 
 export default function Home() {
-  const [rate, setRate] = useState<number | null>(null);
-  const [rateDate, setRateDate] = useState("");
+  const [rate, setRate] = useState<number>(PACKAGED_RATE.rate);
+  const [rateDate, setRateDate] = useState(PACKAGED_RATE.date);
   const [tryValue, setTryValue] = useState("1000");
-  const [gbpValue, setGbpValue] = useState("");
+  const [gbpValue, setGbpValue] = useState(
+    inputAmount(1000 / PACKAGED_RATE.rate),
+  );
   const [activeCurrency, setActiveCurrency] = useState<"TRY" | "GBP">("TRY");
   const [status, setStatus] = useState<"loading" | "live" | "cached" | "error">(
-    "loading",
+    "cached",
   );
+  const installPrompt = useRef<BeforeInstallPromptEvent | null>(null);
+  const [installMode, setInstallMode] = useState<"hidden" | "native" | "ios">(
+    "hidden",
+  );
+  const [showIosSteps, setShowIosSteps] = useState(false);
 
   const convertFromTry = useCallback((value: string, currentRate: number) => {
     const amount = parseAmount(value);
@@ -64,8 +81,13 @@ export default function Home() {
 
   const refreshRate = useCallback(async () => {
     setStatus("loading");
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 3000);
     try {
-      const response = await fetch(RATE_URL, { cache: "no-store" });
+      const response = await fetch(RATE_URL, {
+        cache: "no-store",
+        signal: controller.signal,
+      });
       if (!response.ok) throw new Error("Kur alınamadı");
 
       const payload = (await response.json()) as Array<{
@@ -104,11 +126,31 @@ export default function Home() {
           // Bozuk yerel veriyi sessizce yok say.
         }
       }
-      setStatus("error");
+      setRate(PACKAGED_RATE.rate);
+      setRateDate(PACKAGED_RATE.date);
+      setStatus("cached");
+      if (activeCurrency === "TRY") convertFromTry(tryValue, PACKAGED_RATE.rate);
+      else convertFromGbp(gbpValue, PACKAGED_RATE.rate);
+    } finally {
+      window.clearTimeout(timeout);
     }
   }, [activeCurrency, convertFromGbp, convertFromTry, gbpValue, tryValue]);
 
   useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      try {
+        const cached = JSON.parse(stored) as StoredRate;
+        if (Number.isFinite(cached.rate) && cached.rate > 0) {
+          setRate(cached.rate);
+          setRateDate(cached.date);
+          setStatus("cached");
+          convertFromTry(tryValue, cached.rate);
+        }
+      } catch {
+        // Paket içindeki son bilinen kur zaten kullanıma hazır.
+      }
+    }
     void refreshRate();
     // İlk açılışta bir kez güncelle; sonraki değişimler alan işleyicilerinde çevrilir.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -120,18 +162,62 @@ export default function Home() {
     }
   }, []);
 
+  useEffect(() => {
+    const standalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
+    if (standalone || localStorage.getItem(INSTALL_DISMISSED_KEY) === "yes") return;
+
+    const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (isIos) setInstallMode("ios");
+
+    const handleInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      installPrompt.current = event as BeforeInstallPromptEvent;
+      setInstallMode("native");
+    };
+    const handleInstalled = () => {
+      installPrompt.current = null;
+      setInstallMode("hidden");
+    };
+
+    window.addEventListener("beforeinstallprompt", handleInstallPrompt);
+    window.addEventListener("appinstalled", handleInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleInstallPrompt);
+      window.removeEventListener("appinstalled", handleInstalled);
+    };
+  }, []);
+
+  const installApp = async () => {
+    if (installMode === "ios") {
+      setShowIosSteps(true);
+      return;
+    }
+    if (!installPrompt.current) return;
+    await installPrompt.current.prompt();
+    await installPrompt.current.userChoice;
+    installPrompt.current = null;
+    setInstallMode("hidden");
+  };
+
+  const dismissInstall = () => {
+    localStorage.setItem(INSTALL_DISMISSED_KEY, "yes");
+    setInstallMode("hidden");
+  };
+
   const handleTry = (value: string) => {
     const cleaned = value.replace(/[^0-9.,]/g, "");
     setActiveCurrency("TRY");
     setTryValue(cleaned);
-    if (rate) convertFromTry(cleaned, rate);
+    convertFromTry(cleaned, rate);
   };
 
   const handleGbp = (value: string) => {
     const cleaned = value.replace(/[^0-9.,]/g, "");
     setActiveCurrency("GBP");
     setGbpValue(cleaned);
-    if (rate) convertFromGbp(cleaned, rate);
+    convertFromGbp(cleaned, rate);
   };
 
   const switchDirection = () => {
@@ -143,7 +229,6 @@ export default function Home() {
   };
 
   const summary = useMemo(() => {
-    if (!rate) return "Kur bağlantısı bekleniyor";
     return `1 GBP = ${new Intl.NumberFormat("tr-TR", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 4,
@@ -255,6 +340,34 @@ export default function Home() {
           {status === "error" && <p className="error-message">İnternet bağlantısını kontrol edip tekrar deneyin.</p>}
           <p className="disclaimer">Banka, kart ve döviz bürosu kurları farklı olabilir.</p>
         </footer>
+
+        {installMode !== "hidden" && (
+          <aside className="install-card" aria-label="Uygulamayı telefona ekle">
+            <button
+              className="install-close"
+              type="button"
+              onClick={dismissInstall}
+              aria-label="Uygulama önerisini kapat"
+            >
+              ×
+            </button>
+            <span className="install-icon" aria-hidden="true">₺£</span>
+            <div className="install-copy">
+              <strong>Cebinde hep hazır olsun</strong>
+              <span>
+                {installMode === "ios"
+                  ? "Ana ekranına ekle, uygulama gibi tek dokunuşla aç."
+                  : "Ücretsiz yükle, uygulama gibi tek dokunuşla aç."}
+              </span>
+              {showIosSteps && (
+                <small>Safari’de Paylaş simgesine, ardından “Ana Ekrana Ekle”ye dokun.</small>
+              )}
+            </div>
+            <button className="install-button" type="button" onClick={() => void installApp()}>
+              {installMode === "ios" ? "Nasıl?" : "Yükle"}
+            </button>
+          </aside>
+        )}
       </section>
     </main>
   );

@@ -1,11 +1,6 @@
 import assert from "node:assert/strict";
-import { access, readFile, readdir } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import test from "node:test";
-
-const developmentPreviewMeta =
-  /<meta(?=[^>]*\bname=["']codex-preview["'])(?=[^>]*\bcontent=["']development["'])[^>]*>/i;
-const templateRoot = new URL("../", import.meta.url);
-const previewRoot = new URL("../app/_sites-preview/", import.meta.url);
 
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -28,64 +23,44 @@ async function render() {
   );
 }
 
-test("server-renders the starter loading skeleton", async () => {
+test("server-renders an immediately usable GBP/TRY converter", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, developmentPreviewMeta);
-  assert.match(html, /<title>Your site is taking shape<\/title>/i);
-  assert.match(html, /Building your site/);
-  assert.match(html, /Your site is taking shape/);
-  assert.match(
-    html,
-    /Your first version will appear here automatically when it’s ready\./,
-  );
-  assert.doesNotMatch(html, /Codex/);
-  assert.match(html, /react-loading-skeleton/);
-  assert.match(html, /role="status"/);
+  assert.match(html, /<title>Cebimde Kur — TL ↔ Sterlin<\/title>/);
+  assert.match(html, /aria-label="Türk lirası tutarı" value="1000"/);
+  assert.match(html, /aria-label="İngiliz sterlini tutarı" value="15,51"/);
+  assert.match(html, /1 GBP = 64,491 TL/);
+  assert.match(html, /Son kur tarihi:/);
+  assert.match(html, /rel="manifest" href="\/manifest\.webmanifest"/);
+  assert.doesNotMatch(html, /Kur bağlantısı bekleniyor/);
 });
 
-test("keeps the loading skeleton scoped and disposable", async () => {
-  const [preview, css, page, layout, packageJson, files] = await Promise.all([
-    readFile(new URL("SkeletonPreview.tsx", previewRoot), "utf8"),
-    readFile(new URL("preview.css", previewRoot), "utf8"),
+test("ships last-rate fallback and installable offline assets", async () => {
+  const [page, manifest, serviceWorker] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../package.json", import.meta.url), "utf8"),
-    readdir(previewRoot),
+    readFile(new URL("../app/manifest.ts", import.meta.url), "utf8"),
+    readFile(new URL("../public/sw.js", import.meta.url), "utf8"),
   ]);
 
-  assert.deepEqual(files.sort(), ["SkeletonPreview.tsx", "preview.css"]);
-  assert.match(preview, /from "react-loading-skeleton"/);
-  assert.match(preview, /baseColor="#eceae7"/);
-  assert.match(preview, /highlightColor="#f9f8f6"/);
-  assert.match(preview, /duration=\{2\.8\}/);
-  assert.match(preview, /sites-skeleton-search-placeholder/);
-  assert.match(packageJson, /"react-loading-skeleton": "3\.5\.0"/);
+  assert.match(page, /const PACKAGED_RATE/);
+  assert.match(page, /localStorage\.getItem\(STORAGE_KEY\)/);
+  assert.match(page, /new AbortController\(\)/);
+  assert.match(page, /setTimeout\(\(\) => controller\.abort\(\), 3000\)/);
+  assert.match(page, /beforeinstallprompt/);
+  assert.match(page, /Ana Ekrana Ekle/);
 
-  const shellIndex = preview.indexOf('className="sites-skeleton-shell"');
-  const statusIndex = preview.indexOf('className="sites-skeleton-status"');
-  assert.ok(shellIndex >= 0 && statusIndex > shellIndex);
-  assert.match(css, /position:\s*fixed/);
-  assert.match(css, /inset:\s*0/);
-  assert.match(css, /opacity:\s*0\.52/);
-  assert.match(css, /prefers-reduced-motion:\s*reduce/);
-  assert.doesNotMatch(css, /#020617|canvas|pets|progress/i);
-  assert.doesNotMatch(
-    preview,
-    /loading-spinner|status-mark|status-progress|canvas|cookie|random/i,
-  );
+  assert.match(manifest, /display:\s*"standalone"/);
+  assert.match(manifest, /icon-192\.png/);
+  assert.match(manifest, /icon-512\.png/);
+  assert.match(serviceWorker, /cebimde-kur-v2/);
+  assert.match(serviceWorker, /caches\.match\(event\.request\)/);
 
-  assert.match(page, /export const metadata:\s*Metadata/);
-  assert.match(page, /"codex-preview": "development"/);
-  assert.match(page, /<SkeletonPreview \/>/);
-  assert.match(layout, /title:\s*"Starter Project"/);
-  assert.doesNotMatch(layout, /codex-preview|_sites-preview|themeColor|\bViewport\b/);
-  assert.doesNotMatch(css, /(^|\s)(html|body)\s*\{/m);
-
-  await assert.rejects(
-    access(new URL("public/_sites-preview", templateRoot)),
-  );
+  await Promise.all([
+    access(new URL("../public/icon-180.png", import.meta.url)),
+    access(new URL("../public/icon-192.png", import.meta.url)),
+    access(new URL("../public/icon-512.png", import.meta.url)),
+  ]);
 });

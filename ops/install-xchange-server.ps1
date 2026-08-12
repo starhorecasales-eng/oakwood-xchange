@@ -11,12 +11,12 @@ $port = 3027
 
 $nssm = (Get-Command nssm.exe -ErrorAction Stop).Source
 $node = "C:\Program Files\nodejs\node.exe"
-$vinext = Join-Path $workspace "node_modules\vinext\dist\cli.js"
+$serverEntry = Join-Path $workspace "ops\server.mjs"
 $cloudflared = "C:\Program Files (x86)\cloudflared\cloudflared.exe"
 $cloudflaredConfig = Join-Path $PSScriptRoot "cloudflared.yml"
 $logs = Join-Path $workspace "logs"
 
-foreach ($requiredFile in @($node, $vinext, $cloudflared, $cloudflaredConfig)) {
+foreach ($requiredFile in @($node, $serverEntry, $cloudflared, $cloudflaredConfig)) {
   if (-not (Test-Path -LiteralPath $requiredFile)) {
     throw "Required file not found: $requiredFile"
   }
@@ -51,9 +51,9 @@ if ($existingSiteService) {
     Stop-Service -Name $serviceName -Force
   }
   & $nssm set $serviceName Application $node | Out-Null
-  & $nssm set $serviceName AppParameters $vinext start --port $port --hostname 127.0.0.1 | Out-Null
+  & $nssm set $serviceName AppParameters $serverEntry | Out-Null
 } else {
-  & $nssm install $serviceName $node $vinext start --port $port --hostname 127.0.0.1 | Out-Null
+  & $nssm install $serviceName $node $serverEntry | Out-Null
 }
 
 & $nssm set $serviceName DisplayName $serviceDisplayName | Out-Null
