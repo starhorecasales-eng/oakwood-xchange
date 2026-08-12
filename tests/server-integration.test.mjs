@@ -4,7 +4,6 @@ import { request } from "node:http";
 import test from "node:test";
 
 const PUBLIC_PORT = 3127;
-const INTERNAL_PORT = 3128;
 
 function send(path, headers) {
   return new Promise((resolve, reject) => {
@@ -46,7 +45,6 @@ test("production server enforces canonical HTTPS and emits security headers", as
     env: {
       ...process.env,
       PORT: String(PUBLIC_PORT),
-      VINEXT_INTERNAL_PORT: String(INTERNAL_PORT),
     },
     stdio: "ignore",
     windowsHide: true,
@@ -73,6 +71,12 @@ test("production server enforces canonical HTTPS and emits security headers", as
       insecure.headers.location,
       "https://xchange.oakwoodapps.co.uk/test?q=1",
     );
+
+    const missing = await send("/not-found", {
+      Host: "xchange.oakwoodapps.co.uk",
+      "X-Forwarded-Proto": "https",
+    });
+    assert.equal(missing.statusCode, 404);
   } finally {
     child.kill();
   }
