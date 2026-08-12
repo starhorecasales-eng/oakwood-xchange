@@ -15,6 +15,44 @@ $protectedNssm = "C:\Program Files\OakwoodApps\Service\nssm.exe"
 $cloudflared = "C:\Program Files (x86)\cloudflared\cloudflared.exe"
 $protectedTunnelDirectory = "C:\ProgramData\OakwoodApps\Cloudflare"
 $protectedTunnelConfig = Join-Path $protectedTunnelDirectory "cloudflared.yml"
+$operator = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+
+function Set-NssmValue {
+  param(
+    [string]$Name,
+    [string]$Setting,
+    [string[]]$Value
+  )
+  & $nssm set $Name $Setting @Value | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    throw "NSSM could not set $Setting for $Name."
+  }
+}
+
+function Wait-ServiceState {
+  param(
+    [string]$Name,
+    [string]$State,
+    [int]$Seconds = 20
+  )
+  $deadline = (Get-Date).AddSeconds($Seconds)
+  do {
+    if ((Get-Service -Name $Name -ErrorAction Stop).Status.ToString() -eq $State) { return }
+    Start-Sleep -Milliseconds 250
+  } while ((Get-Date) -lt $deadline)
+  throw "Service $Name did not reach state $State within $Seconds seconds."
+}
+
+function Wait-PortReleased {
+  param([int]$Port, [int]$Seconds = 15)
+  $deadline = (Get-Date).AddSeconds($Seconds)
+  do {
+    $listener = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+    if (-not $listener) { return }
+    Start-Sleep -Milliseconds 250
+  } while ((Get-Date) -lt $deadline)
+  throw "Port $Port is still listening after the service stopped."
+}
 
 foreach ($required in @(
   $node,
@@ -29,7 +67,7 @@ foreach ($required in @(
 }
 
 $previous = [ordered]@{}
-foreach ($field in @("Application", "AppParameters", "AppDirectory", "AppStdout", "AppStderr", "ObjectName")) {
+foreach ($field in @("Application", "AppParameters", "AppDirectory", "AppStdout", "AppStderr", "AppNoConsole", "ObjectName")) {
   $previous[$field] = (& $nssm get $serviceName $field).Trim()
 }
 $previousImagePath = (Get-CimInstance Win32_Service -Filter "Name='$serviceName'").PathName
@@ -48,7 +86,16 @@ Copy-Item -LiteralPath (Join-Path $workspace "ops\cloudflared.yml") -Destination
 
 & icacls.exe $release /inheritance:r /grant:r "SYSTEM:(OI)(CI)(F)" "Administrators:(OI)(CI)(F)" "LOCAL SERVICE:(OI)(CI)(RX)" | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Could not protect the release directory." }
-& icacls.exe $logs /inheritance:r /grant:r "SYSTEM:(OI)(CI)(F)" "Administrators:(OI)(CI)(F)" "LOCAL SERVICE:(OI)(CI)(M)" | Out-Null
+foreach ($directory in @(
+  "C:\Program Files\OakwoodApps",
+  "C:\Program Files\OakwoodApps\Xchange",
+  $releaseRoot,
+  "C:\Program Files\nodejs"
+)) {
+  & icacls.exe $directory /grant:r "LOCAL SERVICE:(RX)" | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw "Could not grant LocalService access to $directory." }
+}
+& icacls.exe $logs /inheritance:r /grant:r "SYSTEM:(OI)(CI)(F)" "Administrators:(OI)(CI)(F)" "LOCAL SERVICE:(OI)(CI)(M)" "${operator}:(OI)(CI)(RX)" | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Could not protect the log directory." }
 & icacls.exe (Split-Path -Parent $protectedNssm) /inheritance:r /grant:r "SYSTEM:(OI)(CI)(F)" "Administrators:(OI)(CI)(F)" "LOCAL SERVICE:(OI)(CI)(RX)" | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Could not protect the service wrapper." }
@@ -58,17 +105,21 @@ if ($LASTEXITCODE -ne 0) { throw "Could not protect the tunnel configuration." }
 & $cloudflared --config $protectedTunnelConfig tunnel ingress validate | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Protected tunnel configuration is invalid." }
 
+$tunnelChanged = $false
 try {
   Stop-Service -Name $serviceName -Force
+  Wait-ServiceState -Name $serviceName -State "Stopped"
+  Wait-PortReleased -Port 3027
   $quotedProtectedNssm = '"' + $protectedNssm + '"'
   & sc.exe config $serviceName binPath= $quotedProtectedNssm | Out-Null
   if ($LASTEXITCODE -ne 0) { throw "Could not move the service wrapper." }
-  & $nssm set $serviceName Application $node | Out-Null
-  & $nssm set $serviceName AppParameters (Join-Path $release "ops\server.mjs") | Out-Null
-  & $nssm set $serviceName AppDirectory $release | Out-Null
-  & $nssm set $serviceName AppStdout (Join-Path $logs "server-out.log") | Out-Null
-  & $nssm set $serviceName AppStderr (Join-Path $logs "server-error.log") | Out-Null
-  & $nssm set $serviceName ObjectName "NT AUTHORITY\LocalService" | Out-Null
+  Set-NssmValue -Name $serviceName -Setting "Application" -Value @($node)
+  Set-NssmValue -Name $serviceName -Setting "AppParameters" -Value @((Join-Path $release "ops\server.mjs"))
+  Set-NssmValue -Name $serviceName -Setting "AppDirectory" -Value @($release)
+  Set-NssmValue -Name $serviceName -Setting "AppStdout" -Value @((Join-Path $logs "server-out.log"))
+  Set-NssmValue -Name $serviceName -Setting "AppStderr" -Value @((Join-Path $logs "server-error.log"))
+  Set-NssmValue -Name $serviceName -Setting "AppNoConsole" -Value @("1")
+  Set-NssmValue -Name $serviceName -Setting "ObjectName" -Value @("NT AUTHORITY\LocalService")
   Start-Service -Name $serviceName
 
   $deadline = (Get-Date).AddSeconds(20)
@@ -91,7 +142,17 @@ try {
   if (-not $healthy) { throw "Protected Xchange service failed its health check." }
 
   Stop-Service -Name $tunnelServiceName -Force
-  & $nssm set $tunnelServiceName AppParameters --config $protectedTunnelConfig tunnel --protocol http2 run pc003-production-20260622 | Out-Null
+  Wait-ServiceState -Name $tunnelServiceName -State "Stopped"
+  Set-NssmValue -Name $tunnelServiceName -Setting "AppParameters" -Value @(
+    "--config",
+    $protectedTunnelConfig,
+    "tunnel",
+    "--protocol",
+    "http2",
+    "run",
+    "pc003-production-20260622"
+  )
+  $tunnelChanged = $true
   Start-Service -Name $tunnelServiceName
 
   $tunnelDeadline = (Get-Date).AddSeconds(30)
@@ -111,14 +172,18 @@ try {
   if (-not $publicHealthy) { throw "Cloudflare public health check failed." }
 } catch {
   Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
-  Stop-Service -Name $tunnelServiceName -Force -ErrorAction SilentlyContinue
+  if ($tunnelChanged) {
+    Stop-Service -Name $tunnelServiceName -Force -ErrorAction SilentlyContinue
+  }
   & sc.exe config $serviceName binPath= $previousImagePath | Out-Null
   foreach ($field in $previous.Keys) {
-    & $nssm set $serviceName $field $previous[$field] | Out-Null
+    Set-NssmValue -Name $serviceName -Setting $field -Value @($previous[$field])
   }
   Start-Service -Name $serviceName -ErrorAction SilentlyContinue
-  & $nssm set $tunnelServiceName AppParameters $previousTunnelParameters | Out-Null
-  Start-Service -Name $tunnelServiceName -ErrorAction SilentlyContinue
+  if ($tunnelChanged) {
+    Set-NssmValue -Name $tunnelServiceName -Setting "AppParameters" -Value @($previousTunnelParameters)
+    Start-Service -Name $tunnelServiceName -ErrorAction SilentlyContinue
+  }
   throw
 }
 
