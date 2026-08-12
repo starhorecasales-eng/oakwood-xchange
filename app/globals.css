@@ -216,6 +216,7 @@ footer { padding: 21px 2px 2px; }
 footer p { margin: 8px 0 0; color: #71847e; font-size: 11px; }
 footer .disclaimer { margin-top: 17px; padding-top: 14px; border-top: 1px solid var(--line); line-height: 1.45; }
 footer .error-message { color: #a33b35; font-weight: 650; }
+footer .cached-message { color: #9a681d; font-weight: 650; }
 
 .install-card {
   position: fixed;

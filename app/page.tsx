@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 type StoredRate = {
   rate: number;
   date: string;
+  savedAt?: number;
 };
 
 type BeforeInstallPromptEvent = Event & {
@@ -15,6 +16,9 @@ type BeforeInstallPromptEvent = Event & {
 const STORAGE_KEY = "cebimde-kur-gbp-try";
 const INSTALL_DISMISSED_KEY = "cebimde-kur-install-dismissed";
 const RATE_URL = "https://api.frankfurter.dev/v2/rates?base=GBP&quotes=TRY";
+const REFRESH_COOLDOWN_MS = 30_000;
+const MIN_VALID_RATE = 10;
+const MAX_VALID_RATE = 250;
 const PACKAGED_RATE: StoredRate = {
   rate: 64.491,
   date: "2026-08-12",
@@ -25,6 +29,24 @@ function parseAmount(value: string) {
   if (!normalized || normalized === ".") return null;
   const number = Number(normalized);
   return Number.isFinite(number) && number >= 0 ? number : null;
+}
+
+function validRate(value: unknown): value is StoredRate {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<StoredRate>;
+  if (
+    !Number.isFinite(candidate.rate) ||
+    Number(candidate.rate) < MIN_VALID_RATE ||
+    Number(candidate.rate) > MAX_VALID_RATE ||
+    typeof candidate.date !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(candidate.date)
+  ) {
+    return false;
+  }
+
+  const timestamp = Date.parse(`${candidate.date}T12:00:00Z`);
+  const tomorrow = Date.now() + 24 * 60 * 60 * 1000;
+  return Number.isFinite(timestamp) && timestamp <= tomorrow;
 }
 
 function inputAmount(value: number, maximumFractionDigits = 2) {
@@ -64,6 +86,7 @@ export default function Home() {
     "cached",
   );
   const installPrompt = useRef<BeforeInstallPromptEvent | null>(null);
+  const lastRefreshAttempt = useRef(0);
   const [installMode, setInstallMode] = useState<"hidden" | "native" | "ios">(
     "hidden",
   );
@@ -80,6 +103,9 @@ export default function Home() {
   }, []);
 
   const refreshRate = useCallback(async () => {
+    const now = Date.now();
+    if (now - lastRefreshAttempt.current < REFRESH_COOLDOWN_MS) return;
+    lastRefreshAttempt.current = now;
     setStatus("loading");
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 3000);
@@ -97,14 +123,18 @@ export default function Home() {
         rate: number;
       }>;
       const latest = payload.find((item) => item.base === "GBP" && item.quote === "TRY");
-      if (!latest || !Number.isFinite(latest.rate)) throw new Error("Geçersiz kur");
+      if (!validRate(latest)) throw new Error("Geçersiz kur");
 
       setRate(latest.rate);
       setRateDate(latest.date);
       setStatus("live");
       localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ rate: latest.rate, date: latest.date } satisfies StoredRate),
+        JSON.stringify({
+          rate: latest.rate,
+          date: latest.date,
+          savedAt: Date.now(),
+        } satisfies StoredRate),
       );
 
       if (activeCurrency === "TRY") convertFromTry(tryValue, latest.rate);
@@ -114,7 +144,7 @@ export default function Home() {
       if (stored) {
         try {
           const cached = JSON.parse(stored) as StoredRate;
-          if (Number.isFinite(cached.rate) && cached.rate > 0) {
+          if (validRate(cached)) {
             setRate(cached.rate);
             setRateDate(cached.date);
             setStatus("cached");
@@ -137,23 +167,10 @@ export default function Home() {
   }, [activeCurrency, convertFromGbp, convertFromTry, gbpValue, tryValue]);
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const cached = JSON.parse(stored) as StoredRate;
-        if (Number.isFinite(cached.rate) && cached.rate > 0) {
-          setRate(cached.rate);
-          setRateDate(cached.date);
-          setStatus("cached");
-          convertFromTry(tryValue, cached.rate);
-        }
-      } catch {
-        // Paket içindeki son bilinen kur zaten kullanıma hazır.
-      }
-    }
-    void refreshRate();
+    const refreshFrame = window.requestAnimationFrame(() => void refreshRate());
     // İlk açılışta bir kez güncelle; sonraki değişimler alan işleyicilerinde çevrilir.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => window.cancelAnimationFrame(refreshFrame);
   }, []);
 
   useEffect(() => {
@@ -169,7 +186,9 @@ export default function Home() {
     if (standalone || localStorage.getItem(INSTALL_DISMISSED_KEY) === "yes") return;
 
     const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    if (isIos) setInstallMode("ios");
+    const iosFrame = isIos
+      ? window.requestAnimationFrame(() => setInstallMode("ios"))
+      : null;
 
     const handleInstallPrompt = (event: Event) => {
       event.preventDefault();
@@ -184,6 +203,7 @@ export default function Home() {
     window.addEventListener("beforeinstallprompt", handleInstallPrompt);
     window.addEventListener("appinstalled", handleInstalled);
     return () => {
+      if (iosFrame !== null) window.cancelAnimationFrame(iosFrame);
       window.removeEventListener("beforeinstallprompt", handleInstallPrompt);
       window.removeEventListener("appinstalled", handleInstalled);
     };
@@ -337,6 +357,9 @@ export default function Home() {
             <button type="button" onClick={() => void refreshRate()} aria-label="Kuru tekrar yenile">↻</button>
           </div>
           {rateDate && <p>Son kur tarihi: {readableDate(rateDate)}</p>}
+          {status === "cached" && (
+            <p className="cached-message">Canlı bağlantı yoksa son kurla hesaplama kesintisiz devam eder.</p>
+          )}
           {status === "error" && <p className="error-message">İnternet bağlantısını kontrol edip tekrar deneyin.</p>}
           <p className="disclaimer">Banka, kart ve döviz bürosu kurları farklı olabilir.</p>
         </footer>

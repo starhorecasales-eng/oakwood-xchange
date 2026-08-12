@@ -6,6 +6,5 @@ ingress:
     service: http://127.0.0.1:3027
   - hostname: app.oakwoodapps.co.uk
     service: http://127.0.0.1:3000
-  # Preserve the existing tunnel behavior for any other hostname already
-  # attached to this tunnel.
-  - service: http://127.0.0.1:3000
+  # Do not expose STAR Sales through unexpected hostnames attached to this tunnel.
+  - service: http_status:404

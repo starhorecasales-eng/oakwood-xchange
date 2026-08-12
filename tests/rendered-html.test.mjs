@@ -49,6 +49,11 @@ test("ships last-rate fallback and installable offline assets", async () => {
   assert.match(page, /localStorage\.getItem\(STORAGE_KEY\)/);
   assert.match(page, /new AbortController\(\)/);
   assert.match(page, /setTimeout\(\(\) => controller\.abort\(\), 3000\)/);
+  assert.match(page, /REFRESH_COOLDOWN_MS = 30_000/);
+  assert.match(page, /MIN_VALID_RATE = 10/);
+  assert.match(page, /MAX_VALID_RATE = 250/);
+  assert.match(page, /validRate\(latest\)/);
+  assert.match(page, /validRate\(cached\)/);
   assert.match(page, /beforeinstallprompt/);
   assert.match(page, /Ana Ekrana Ekle/);
 
