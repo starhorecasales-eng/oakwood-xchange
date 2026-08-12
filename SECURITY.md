@@ -6,7 +6,7 @@ Only the current `main` branch is supported with security updates.
 
 ## Reporting a vulnerability
 
-Please report suspected vulnerabilities privately through GitHub's **Security → Report a vulnerability** flow. Do not open a public issue containing exploit details, credentials, or personal data.
+Please report suspected vulnerabilities privately to the repository owner. Do not open a public issue containing exploit details, credentials, or personal data.
 
 Include the affected URL or commit, reproduction steps, impact, and any suggested remediation. Reports will be acknowledged as soon as practical and investigated before public disclosure.
 
