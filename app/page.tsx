@@ -168,9 +168,9 @@ export default function Home() {
 
   useEffect(() => {
     const refreshFrame = window.requestAnimationFrame(() => void refreshRate());
+    return () => window.cancelAnimationFrame(refreshFrame);
     // İlk açılışta bir kez güncelle; sonraki değişimler alan işleyicilerinde çevrilir.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    return () => window.cancelAnimationFrame(refreshFrame);
   }, []);
 
   useEffect(() => {
