@@ -1,0 +1,11 @@
+tunnel: e609af94-4651-4c1a-a7ce-0ea4d169d4bd
+credentials-file: C:\Users\WebApp\.cloudflared\e609af94-4651-4c1a-a7ce-0ea4d169d4bd.json
+
+ingress:
+  - hostname: xchange.oakwoodapps.co.uk
+    service: http://127.0.0.1:3027
+  - hostname: app.oakwoodapps.co.uk
+    service: http://127.0.0.1:3000
+  # Preserve the existing tunnel behavior for any other hostname already
+  # attached to this tunnel.
+  - service: http://127.0.0.1:3000
