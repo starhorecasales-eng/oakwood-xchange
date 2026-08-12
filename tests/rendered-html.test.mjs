@@ -34,6 +34,8 @@ test("server-renders an immediately usable GBP/TRY converter", async () => {
   assert.match(html, /aria-label="İngiliz sterlini tutarı" value="15,51"/);
   assert.match(html, /1 GBP = 64,491 TL/);
   assert.match(html, /Son kur tarihi:/);
+  assert.match(html, /Hesapladığınız tutarlar kaydedilmez/);
+  assert.match(html, /Oakwood Apps tarafından hazırlandı/);
   assert.match(html, /rel="manifest" href="\/manifest\.webmanifest"/);
   assert.doesNotMatch(html, /Kur bağlantısı bekleniyor/);
 });

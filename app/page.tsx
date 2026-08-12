@@ -362,6 +362,10 @@ export default function Home() {
           )}
           {status === "error" && <p className="error-message">İnternet bağlantısını kontrol edip tekrar deneyin.</p>}
           <p className="disclaimer">Banka, kart ve döviz bürosu kurları farklı olabilir.</p>
+          <div className="site-credit">
+            <span>Hesapladığınız tutarlar kaydedilmez.</span>
+            <span>Oakwood Apps tarafından hazırlandı.</span>
+          </div>
         </footer>
 
         {installMode !== "hidden" && (

@@ -217,6 +217,16 @@ footer p { margin: 8px 0 0; color: #71847e; font-size: 11px; }
 footer .disclaimer { margin-top: 17px; padding-top: 14px; border-top: 1px solid var(--line); line-height: 1.45; }
 footer .error-message { color: #a33b35; font-weight: 650; }
 footer .cached-message { color: #9a681d; font-weight: 650; }
+.site-credit {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 13px;
+  color: #8b9995;
+  font-size: 9px;
+  line-height: 1.45;
+}
+.site-credit span:last-child { text-align: right; }
 
 .install-card {
   position: fixed;
@@ -298,6 +308,8 @@ footer .cached-message { color: #9a681d; font-weight: 650; }
   .intro-copy { margin-top: 30px; }
   .currency-block { min-height: 184px; padding-inline: 18px; }
   .status-pill { padding-inline: 9px; }
+  .site-credit { display: grid; }
+  .site-credit span:last-child { text-align: left; }
 }
 
 @media (prefers-reduced-motion: reduce) {
