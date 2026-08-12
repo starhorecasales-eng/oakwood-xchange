@@ -13,6 +13,11 @@ test("protected deployment waits for shutdown and supports LocalService", async 
   assert.match(script, /"C:\\Program Files\\nodejs"/);
   assert.match(script, /-Setting "AppNoConsole" -Value @\("1"\)/);
   assert.match(script, /-Setting "ObjectName" -Value @\("NT AUTHORITY\\LocalService"\)/);
+  assert.match(
+    script,
+    /-Setting "AppParameters" -Value @\("ops\\server\.mjs"\)/,
+  );
+  assert.doesNotMatch(script, /-Setting "AppParameters"[^\n]+Join-Path \$release/);
 });
 
 test("application rollback leaves an unchanged tunnel running", async () => {

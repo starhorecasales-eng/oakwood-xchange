@@ -114,7 +114,7 @@ try {
   & sc.exe config $serviceName binPath= $quotedProtectedNssm | Out-Null
   if ($LASTEXITCODE -ne 0) { throw "Could not move the service wrapper." }
   Set-NssmValue -Name $serviceName -Setting "Application" -Value @($node)
-  Set-NssmValue -Name $serviceName -Setting "AppParameters" -Value @((Join-Path $release "ops\server.mjs"))
+  Set-NssmValue -Name $serviceName -Setting "AppParameters" -Value @("ops\server.mjs")
   Set-NssmValue -Name $serviceName -Setting "AppDirectory" -Value @($release)
   Set-NssmValue -Name $serviceName -Setting "AppStdout" -Value @((Join-Path $logs "server-out.log"))
   Set-NssmValue -Name $serviceName -Setting "AppStderr" -Value @((Join-Path $logs "server-error.log"))
