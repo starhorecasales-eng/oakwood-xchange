@@ -42,8 +42,9 @@ test("server-renders an immediately usable GBP/TRY converter", async () => {
 });
 
 test("ships last-rate fallback and installable offline assets", async () => {
-  const [page, rateCache, rates, provider, manifest, serviceWorker] = await Promise.all([
+  const [page, layout, rateCache, rates, provider, manifest, serviceWorker] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/rate-cache.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/rates.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/frankfurter.ts", import.meta.url), "utf8"),
@@ -58,6 +59,7 @@ test("ships last-rate fallback and installable offline assets", async () => {
   assert.match(page, /REFRESH_COOLDOWN_MS = 30_000/);
   assert.match(page, /beforeinstallprompt/);
   assert.match(page, /Ana Ekrana Ekle/);
+  assert.match(rateCache, /cebimde-kur-rates-v3/);
   assert.match(rateCache, /cebimde-kur-rates-v2/);
   assert.match(rateCache, /cebimde-kur-gbp-try/);
   assert.match(rates, /PACKAGED_RATE_TABLE/);
@@ -69,8 +71,11 @@ test("ships last-rate fallback and installable offline assets", async () => {
   assert.match(manifest, /display:\s*"standalone"/);
   assert.match(manifest, /icon-192\.png\?v=3/);
   assert.match(manifest, /icon-512\.png\?v=3/);
-  assert.match(serviceWorker, /cebimde-kur-v3/);
+  assert.match(serviceWorker, /cebimde-kur-v4/);
   assert.match(serviceWorker, /caches\.match\(event\.request\)/);
+  assert.match(serviceWorker, /event\.request\.mode === "navigate"/);
+  assert.match(serviceWorker, /response\.ok/);
+  assert.doesNotMatch(layout, /maximumScale/);
 
   await Promise.all([
     access(new URL("../public/icon-180.png", import.meta.url)),

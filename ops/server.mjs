@@ -28,6 +28,18 @@ const contentTypes = new Map([
   [".woff2", "font/woff2"],
 ]);
 
+function requestPathname(req) {
+  try {
+    return new URL(req.url ?? "/", "http://localhost").pathname;
+  } catch {
+    return "/";
+  }
+}
+
+function secureHeaders(req, headers = {}) {
+  return withSecurityHeaders(headers, { pathname: requestPathname(req) });
+}
+
 function localFileFor(rawUrl) {
   if (!rawUrl) return null;
   let pathname;
@@ -59,7 +71,7 @@ async function serveStatic(req, res) {
   const extension = path.extname(filename).toLowerCase();
   const isHashedAsset = req.url?.startsWith("/assets/");
   const shouldRevalidate = extension === ".html" || req.url === "/sw.js";
-  res.writeHead(200, withSecurityHeaders({
+  res.writeHead(200, secureHeaders(req, {
     "Cache-Control": shouldRevalidate
       ? "no-cache"
       : isHashedAsset
@@ -81,13 +93,13 @@ const server = createServer(async (req, res) => {
   try {
     const redirectUrl = canonicalHttpsUrl(req);
     if (redirectUrl) {
-      res.writeHead(308, withSecurityHeaders({ Location: redirectUrl }));
+      res.writeHead(308, secureHeaders(req, { Location: redirectUrl }));
       res.end();
       return;
     }
 
     if (await serveStatic(req, res)) return;
-    res.writeHead(404, withSecurityHeaders({
+    res.writeHead(404, secureHeaders(req, {
       "Cache-Control": "no-store",
       "Content-Type": "text/plain; charset=utf-8",
     }));
@@ -95,7 +107,7 @@ const server = createServer(async (req, res) => {
   } catch (error) {
     console.error("[xchange] Request failed:", error);
     if (!res.headersSent) {
-      res.writeHead(500, withSecurityHeaders({ "Content-Type": "text/plain; charset=utf-8" }));
+      res.writeHead(500, secureHeaders(req, { "Content-Type": "text/plain; charset=utf-8" }));
     }
     res.end("Internal Server Error");
   }

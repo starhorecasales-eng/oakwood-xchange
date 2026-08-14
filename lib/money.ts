@@ -5,23 +5,69 @@ export type Money = Readonly<{
   currency: CurrencyCode;
 }>;
 
-export function parseLocalizedAmount(value: string): number | null {
-  const compact = value.trim().replace(/\s/g, "");
+function localeSeparators(locale: string) {
+  const parts = new Intl.NumberFormat(locale).formatToParts(12345.6);
+  return {
+    decimal: parts.find((part) => part.type === "decimal")?.value ?? ".",
+    group: parts.find((part) => part.type === "group")?.value ?? ",",
+  };
+}
+
+function parseNumericText(value: string, locale: string): number | null {
+  const compact = value.trim().replace(/[\s'’]/g, "");
   if (!compact) return null;
+  if (!/^[0-9.,]+$/.test(compact)) return null;
 
   const lastComma = compact.lastIndexOf(",");
   const lastDot = compact.lastIndexOf(".");
-  const decimalIndex = Math.max(lastComma, lastDot);
-  const integerPart = decimalIndex >= 0 ? compact.slice(0, decimalIndex) : compact;
-  const fractionPart = decimalIndex >= 0 ? compact.slice(decimalIndex + 1) : "";
-  const normalizedInteger = integerPart.replace(/[.,]/g, "");
-  const normalized = decimalIndex >= 0
-    ? `${normalizedInteger || "0"}.${fractionPart}`
-    : normalizedInteger;
+  let normalized = compact;
 
-  if (!/^\d+(?:\.\d*)?$/.test(normalized)) return null;
+  if (lastComma >= 0 && lastDot >= 0) {
+    const decimalSeparator = lastComma > lastDot ? "," : ".";
+    const groupingSeparator = decimalSeparator === "," ? "." : ",";
+    const decimalIndex = compact.lastIndexOf(decimalSeparator);
+    const integerPart = compact.slice(0, decimalIndex).split(groupingSeparator).join("");
+    const fractionPart = compact.slice(decimalIndex + 1);
+    if (!integerPart || !fractionPart || integerPart.includes(decimalSeparator)) return null;
+    normalized = `${integerPart}.${fractionPart}`;
+  } else if (lastComma >= 0 || lastDot >= 0) {
+    const separator = lastComma >= 0 ? "," : ".";
+    const parts = compact.split(separator);
+    if (parts.some((part) => !part)) return null;
+    const { group } = localeSeparators(locale);
+    const looksGrouped = separator === group
+      && parts.length > 1
+      && parts.slice(1).every((part) => part.length === 3);
+    normalized = looksGrouped
+      ? parts.join("")
+      : parts.length === 2
+        ? `${parts[0]}.${parts[1]}`
+        : "";
+  }
+
+  if (!/^\d+(?:\.\d+)?$/.test(normalized)) return null;
   const amount = Number(normalized);
   return Number.isFinite(amount) && amount >= 0 ? amount : null;
+}
+
+export function parseLocalizedAmount(value: string, locale = "tr-TR"): number | null {
+  return parseNumericText(value, locale);
+}
+
+export function parseMoneyText(
+  value: string,
+  { currency, locale = CURRENCIES[currency].locale }: { currency: CurrencyCode; locale?: string },
+): Money | null {
+  let numericText = value.toUpperCase();
+  for (const definition of Object.values(CURRENCIES)) {
+    numericText = numericText
+      .split(definition.code)
+      .join("")
+      .split(definition.symbol)
+      .join("");
+  }
+  const amount = parseNumericText(numericText, locale);
+  return amount === null ? null : createMoney(amount, currency);
 }
 
 export function createMoney(amount: number, currency: CurrencyCode): Money {

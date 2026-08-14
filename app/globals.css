@@ -82,6 +82,8 @@ main {
 }
 .status-pill.loading span { background: #d69a31; animation: pulse 1.2s infinite; }
 .status-pill.cached span { background: #d69a31; }
+.status-pill.stale span { background: #d69a31; }
+.status-pill.old span { background: #c54e45; }
 .status-pill.error span { background: #c54e45; }
 
 .intro-copy { margin: 34px 2px 18px; }
@@ -194,6 +196,7 @@ footer p { margin: 8px 0 0; color: #71847e; font-size: 11px; }
 footer .disclaimer { margin-top: 17px; padding-top: 14px; border-top: 1px solid var(--line); line-height: 1.45; }
 footer .error-message { color: #a33b35; font-weight: 650; }
 footer .cached-message { color: #9a681d; font-weight: 650; }
+footer .old-rate-message { color: #a33b35; font-weight: 700; }
 .site-credit {
   display: flex;
   justify-content: space-between;

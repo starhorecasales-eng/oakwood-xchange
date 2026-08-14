@@ -23,10 +23,19 @@ export const SECURITY_HEADERS = Object.freeze({
   "X-Frame-Options": "DENY",
 });
 
-export function withSecurityHeaders(headers = {}) {
+export function permissionsPolicyForPath(pathname = "/") {
+  const cameraEnabled = pathname === "/camera" || pathname.startsWith("/camera/");
+  return `${cameraEnabled ? "camera=(self)" : "camera=()"}, microphone=(), geolocation=()`;
+}
+
+export function withSecurityHeaders(headers = {}, { pathname = "/" } = {}) {
+  const securityHeaders = {
+    ...SECURITY_HEADERS,
+    "Permissions-Policy": permissionsPolicyForPath(pathname),
+  };
   const secured = {};
   const protectedNames = new Set(
-    Object.keys(SECURITY_HEADERS).map((name) => name.toLowerCase()),
+    Object.keys(securityHeaders).map((name) => name.toLowerCase()),
   );
 
   for (const [name, value] of Object.entries(headers)) {
@@ -35,7 +44,7 @@ export function withSecurityHeaders(headers = {}) {
     }
   }
 
-  return { ...secured, ...SECURITY_HEADERS };
+  return { ...secured, ...securityHeaders };
 }
 
 export function canonicalHttpsUrl(req) {

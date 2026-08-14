@@ -12,22 +12,34 @@ export type RateQuote = Readonly<{
   rate: number;
 }>;
 
+export type RateSource = Readonly<{
+  id: "frankfurter" | "packaged";
+  kind: "reference";
+}>;
+
 export type RateTable = Readonly<{
-  version: 1;
+  version: 2;
   base: CurrencyCode;
   date: string;
   savedAt: number;
+  source: RateSource;
   rates: Readonly<Record<CurrencyCode, number>>;
+}>;
+
+export type RateFreshness = Readonly<{
+  state: "fresh" | "stale" | "old";
+  ageDays: number;
 }>;
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_RATE = 1_000_000;
 
 export const PACKAGED_RATE_TABLE: RateTable = {
-  version: 1,
+  version: 2,
   base: "GBP",
   date: "2026-08-14",
   savedAt: Date.parse("2026-08-14T12:00:00Z"),
+  source: { id: "packaged", kind: "reference" },
   rates: {
     GBP: 1,
     TRY: 64.564,
@@ -85,10 +97,11 @@ export function createRateTable(
   ]) as Record<CurrencyCode, number>;
 
   return {
-    version: 1,
+    version: 2,
     base,
     date: quotes[0].date,
     savedAt,
+    source: { id: "frankfurter", kind: "reference" },
     rates,
   };
 }
@@ -97,11 +110,14 @@ export function isRateTable(value: unknown): value is RateTable {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<RateTable>;
   if (
-    candidate.version !== 1
+    candidate.version !== 2
     || !isCurrencyCode(candidate.base)
     || !isValidDate(candidate.date)
     || typeof candidate.savedAt !== "number"
     || !Number.isFinite(candidate.savedAt)
+    || !candidate.source
+    || (candidate.source.id !== "frankfurter" && candidate.source.id !== "packaged")
+    || candidate.source.kind !== "reference"
     || !candidate.rates
     || typeof candidate.rates !== "object"
   ) {
@@ -112,6 +128,19 @@ export function isRateTable(value: unknown): value is RateTable {
     const rate = candidate.rates?.[currency];
     return currency === candidate.base ? rate === 1 : isValidRate(rate);
   });
+}
+
+export function rateFreshness(
+  table: RateTable,
+  now = new Date(),
+): RateFreshness {
+  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const rateDateUtc = Date.parse(`${table.date}T00:00:00Z`);
+  const ageDays = Math.max(0, Math.floor((todayUtc - rateDateUtc) / 86_400_000));
+  return {
+    ageDays,
+    state: ageDays <= 3 ? "fresh" : ageDays <= 7 ? "stale" : "old",
+  };
 }
 
 export function rateBetween(
