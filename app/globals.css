@@ -47,38 +47,15 @@ main {
 
 .site-header {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
 }
 
-.brand-mark {
-  width: 46px;
-  height: 46px;
-  display: grid;
-  place-items: center;
-  border-radius: 15px;
-  background: var(--ink);
-  color: #fff8e9;
-  font-family: var(--font-geist-mono), monospace;
-  font-weight: 800;
-  letter-spacing: -4px;
-  padding-right: 4px;
-  box-shadow: 0 8px 20px rgba(16, 43, 37, 0.18);
-}
-
-.eyebrow {
-  margin: 0 0 3px;
-  color: var(--lira);
-  font: 750 10px/1 var(--font-geist-mono), monospace;
-  letter-spacing: 0.19em;
-}
-
-h1 {
-  margin: 0;
-  font-size: 20px;
-  line-height: 1.05;
-  letter-spacing: -0.04em;
+.brand-lockup {
+  display: block;
+  width: min(172px, 100%);
+  height: auto;
 }
 
 .status-pill {

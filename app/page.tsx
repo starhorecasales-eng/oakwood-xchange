@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type StoredRate = {
@@ -262,11 +263,15 @@ export default function Home() {
     <main>
       <section className="converter-shell" aria-label="Türk lirası ve İngiliz sterlini dönüştürücü">
         <header className="site-header">
-          <div className="brand-mark" aria-hidden="true">₺£</div>
-          <div>
-            <p className="eyebrow">CEBİMDE KUR</p>
-            <h1>TL ↔ Sterlin</h1>
-          </div>
+          <Image
+            className="brand-lockup"
+            src="/brand/logo-primary-no-tagline.svg"
+            alt="Cebimde Kur"
+            width={1500}
+            height={500}
+            priority
+            unoptimized
+          />
           <button
             className={`status-pill ${status}`}
             type="button"

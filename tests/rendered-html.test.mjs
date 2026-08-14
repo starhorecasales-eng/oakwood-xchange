@@ -36,6 +36,7 @@ test("server-renders an immediately usable GBP/TRY converter", async () => {
   assert.match(html, /Son kur tarihi:/);
   assert.match(html, /Hesapladığınız tutarlar kaydedilmez/);
   assert.match(html, /Oakwood Apps tarafından hazırlandı/);
+  assert.match(html, /brand\/logo-primary-no-tagline\.svg/);
   assert.match(html, /rel="manifest" href="\/manifest\.webmanifest"/);
   assert.doesNotMatch(html, /Kur bağlantısı bekleniyor/);
 });
@@ -60,9 +61,9 @@ test("ships last-rate fallback and installable offline assets", async () => {
   assert.match(page, /Ana Ekrana Ekle/);
 
   assert.match(manifest, /display:\s*"standalone"/);
-  assert.match(manifest, /icon-192\.png/);
-  assert.match(manifest, /icon-512\.png/);
-  assert.match(serviceWorker, /cebimde-kur-v2/);
+  assert.match(manifest, /icon-192\.png\?v=3/);
+  assert.match(manifest, /icon-512\.png\?v=3/);
+  assert.match(serviceWorker, /cebimde-kur-v3/);
   assert.match(serviceWorker, /caches\.match\(event\.request\)/);
 
   await Promise.all([
@@ -70,4 +71,22 @@ test("ships last-rate fallback and installable offline assets", async () => {
     access(new URL("../public/icon-192.png", import.meta.url)),
     access(new URL("../public/icon-512.png", import.meta.url)),
   ]);
+});
+
+test("ships the supplied brand artwork with intact currency glyphs", async () => {
+  const assets = await Promise.all([
+    readFile(new URL("../public/brand/app-icon.svg", import.meta.url), "utf8"),
+    readFile(new URL("../public/brand/logo-primary.svg", import.meta.url), "utf8"),
+    readFile(new URL("../public/brand/logo-primary-no-tagline.svg", import.meta.url), "utf8"),
+    readFile(new URL("../public/brand/logo-reversed-dark.svg", import.meta.url), "utf8"),
+    readFile(new URL("../public/favicon.svg", import.meta.url), "utf8"),
+  ]);
+
+  for (const asset of assets) {
+    assert.match(asset, /₺/);
+    assert.match(asset, /£/);
+    assert.doesNotMatch(asset, /â‚º|Â£/);
+  }
+
+  assert.match(assets[0], /↔/);
 });
