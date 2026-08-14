@@ -7,11 +7,13 @@ import {
   createMoney,
   formatInputAmount,
   parseLocalizedAmount,
+  parseMoneyText,
   roundMoney,
 } from "../lib/money.ts";
 import {
   LEGACY_GBP_TRY_CACHE_KEY,
   loadRateTable,
+  PREVIOUS_RATE_CACHE_KEY,
   RATE_CACHE_KEY,
   saveRateTable,
 } from "../lib/rate-cache.ts";
@@ -19,6 +21,7 @@ import {
   convertMoney,
   createRateTable,
   PACKAGED_RATE_TABLE,
+  rateFreshness,
   rateBetween,
 } from "../lib/rates.ts";
 
@@ -63,9 +66,22 @@ test("parses localized amounts and rounds at currency precision", () => {
   assert.equal(formatInputAmount(15.488507527105507), "15,49");
 });
 
+test("parses OCR-style prices using the selected currency locale", () => {
+  assert.equal(parseMoneyText("₺1.299", { currency: "TRY" })?.amount, 1299);
+  assert.equal(parseMoneyText("1.299 ₺", { currency: "TRY" })?.amount, 1299);
+  assert.equal(parseMoneyText("1.299,90 TRY", { currency: "TRY" })?.amount, 1299.9);
+  assert.equal(parseMoneyText("£1,299.99", { currency: "GBP" })?.amount, 1299.99);
+  assert.equal(parseMoneyText("1 299,90 €", { currency: "EUR" })?.amount, 1299.9);
+  assert.equal(parseMoneyText("1'299.90 USD", { currency: "USD" })?.amount, 1299.9);
+  assert.equal(parseMoneyText("1.299", { currency: "GBP" })?.amount, 1.299);
+  assert.equal(parseMoneyText("free", { currency: "GBP" }), null);
+  assert.equal(parseMoneyText("-£10", { currency: "GBP" }), null);
+});
+
 test("builds one rate table and derives reverse and cross rates", () => {
   const table = createRateTable(livePayload, "GBP", 1234);
   assert.equal(table.savedAt, 1234);
+  assert.deepEqual(table.source, { id: "frankfurter", kind: "reference" });
   assert.equal(rateBetween(table, "GBP", "TRY"), 64.564);
   assert.ok(Math.abs(rateBetween(table, "TRY", "GBP") - 1 / 64.564) < 1e-12);
   assert.ok(Math.abs(rateBetween(table, "USD", "TRY") - 64.564 / 1.3504) < 1e-12);
@@ -81,11 +97,41 @@ test("builds one rate table and derives reverse and cross rates", () => {
   );
 });
 
+test("classifies rate age without blocking offline conversion", () => {
+  assert.deepEqual(rateFreshness(PACKAGED_RATE_TABLE, new Date("2026-08-17T23:00:00Z")), {
+    ageDays: 3,
+    state: "fresh",
+  });
+  assert.deepEqual(rateFreshness(PACKAGED_RATE_TABLE, new Date("2026-08-18T01:00:00Z")), {
+    ageDays: 4,
+    state: "stale",
+  });
+  assert.deepEqual(rateFreshness(PACKAGED_RATE_TABLE, new Date("2026-08-22T12:00:00Z")), {
+    ageDays: 8,
+    state: "old",
+  });
+  assert.ok(convertMoney(createMoney(1000, "TRY"), "GBP", PACKAGED_RATE_TABLE).amount > 0);
+});
+
 test("caches validated tables and migrates the previous GBP/TRY cache", () => {
   const currentStorage = memoryStorage();
   saveRateTable(currentStorage, PACKAGED_RATE_TABLE);
   assert.deepEqual(loadRateTable(currentStorage), PACKAGED_RATE_TABLE);
   assert.ok(currentStorage.getItem(RATE_CACHE_KEY));
+
+  const previousTable = {
+    version: 1,
+    base: "GBP",
+    date: "2026-08-14",
+    savedAt: 123,
+    rates: { ...PACKAGED_RATE_TABLE.rates },
+  };
+  const previousStorage = memoryStorage({
+    [PREVIOUS_RATE_CACHE_KEY]: JSON.stringify(previousTable),
+  });
+  const previousMigrated = loadRateTable(previousStorage);
+  assert.equal(previousMigrated?.version, 2);
+  assert.equal(previousMigrated?.source.id, "frankfurter");
 
   const legacyStorage = memoryStorage({
     [LEGACY_GBP_TRY_CACHE_KEY]: JSON.stringify({

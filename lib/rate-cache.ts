@@ -1,6 +1,7 @@
 import { isRateTable, PACKAGED_RATE_TABLE, type RateTable } from "./rates.ts";
 
-export const RATE_CACHE_KEY = "cebimde-kur-rates-v2";
+export const RATE_CACHE_KEY = "cebimde-kur-rates-v3";
+export const PREVIOUS_RATE_CACHE_KEY = "cebimde-kur-rates-v2";
 export const LEGACY_GBP_TRY_CACHE_KEY = "cebimde-kur-gbp-try";
 
 type StorageReader = Pick<Storage, "getItem">;
@@ -11,6 +12,8 @@ type LegacyStoredRate = {
   date?: unknown;
   savedAt?: unknown;
 };
+
+type PreviousRateTable = Omit<RateTable, "version" | "source"> & { version?: unknown };
 
 function readJson(storage: StorageReader, key: string): unknown {
   const stored = storage.getItem(key);
@@ -40,9 +43,22 @@ function migrateLegacyRate(value: unknown): RateTable | null {
   return isRateTable(candidate) ? candidate : null;
 }
 
+function migratePreviousTable(value: unknown): RateTable | null {
+  if (!value || typeof value !== "object") return null;
+  const previous = value as PreviousRateTable;
+  const candidate = {
+    ...previous,
+    version: 2,
+    source: { id: "frankfurter", kind: "reference" },
+  } satisfies RateTable;
+  return isRateTable(candidate) ? candidate : null;
+}
+
 export function loadRateTable(storage: StorageReader): RateTable | null {
   const current = readJson(storage, RATE_CACHE_KEY);
   if (isRateTable(current)) return current;
+  const previous = migratePreviousTable(readJson(storage, PREVIOUS_RATE_CACHE_KEY));
+  if (previous) return previous;
   return migrateLegacyRate(readJson(storage, LEGACY_GBP_TRY_CACHE_KEY));
 }
 

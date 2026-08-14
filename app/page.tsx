@@ -13,6 +13,7 @@ import { loadRateTable, saveRateTable } from "@/lib/rate-cache";
 import {
   convertMoney,
   PACKAGED_RATE_TABLE,
+  rateFreshness,
   rateBetween,
   type RateTable,
 } from "@/lib/rates";
@@ -197,6 +198,8 @@ export default function Home() {
       maximumFractionDigits: 4,
     }).format(rate)} TL`;
   }, [rateTable]);
+  const freshness = useMemo(() => rateFreshness(rateTable), [rateTable]);
+  const displayedStatus = status === "loading" ? "loading" : freshness.state;
 
   const tryNumber = parseLocalizedAmount(tryValue);
   const gbpNumber = parseLocalizedAmount(gbpValue);
@@ -215,7 +218,7 @@ export default function Home() {
             unoptimized
           />
           <button
-            className={`status-pill ${status}`}
+            className={`status-pill ${displayedStatus}`}
             type="button"
             onClick={() => void refreshRate()}
             aria-label="Kuru yenile"
@@ -223,11 +226,13 @@ export default function Home() {
             <span aria-hidden="true" />
             {status === "loading"
               ? "Güncelleniyor"
-              : status === "live"
-                ? "Güncel"
-                : status === "cached"
-                  ? "Son kur"
-                  : "Yenile"}
+              : freshness.state === "old"
+                ? "Eski kur"
+                : freshness.state === "stale"
+                  ? `${freshness.ageDays} günlük kur`
+                  : status === "live"
+                    ? "Güncel"
+                    : "Son kur"}
           </button>
         </header>
 
@@ -308,7 +313,11 @@ export default function Home() {
             <button type="button" onClick={() => void refreshRate()} aria-label="Kuru tekrar yenile">↻</button>
           </div>
           {rateTable.date && <p>Son kur tarihi: {readableDate(rateTable.date)}</p>}
-          {status === "cached" && (
+          {freshness.state === "old" ? (
+            <p className="old-rate-message">Eski kur kullanılıyor; sonuç yaklaşık değerdir. İnternet geldiğinde yenilenecek.</p>
+          ) : freshness.state === "stale" ? (
+            <p className="cached-message">{freshness.ageDays} günlük kur kullanılıyor; sonuç yaklaşık değerdir.</p>
+          ) : status === "cached" && (
             <p className="cached-message">Canlı bağlantı yoksa son kurla hesaplama kesintisiz devam eder.</p>
           )}
           {status === "error" && <p className="error-message">İnternet bağlantısını kontrol edip tekrar deneyin.</p>}

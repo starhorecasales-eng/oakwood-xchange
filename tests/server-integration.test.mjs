@@ -61,6 +61,20 @@ test("production server enforces canonical HTTPS and emits security headers", as
     assert.equal(secure.headers["strict-transport-security"], "max-age=86400");
     assert.equal(secure.headers["x-frame-options"], "DENY");
     assert.match(secure.headers["content-security-policy"], /frame-ancestors 'none'/);
+    assert.equal(
+      secure.headers["permissions-policy"],
+      "camera=(), microphone=(), geolocation=()",
+    );
+
+    const camera = await send("/camera", {
+      Host: "xchange.oakwoodapps.co.uk",
+      "X-Forwarded-Proto": "https",
+    });
+    assert.equal(camera.statusCode, 404);
+    assert.equal(
+      camera.headers["permissions-policy"],
+      "camera=(self), microphone=(), geolocation=()",
+    );
 
     const insecure = await send("/test?q=1", {
       Host: "xchange.oakwoodapps.co.uk",
