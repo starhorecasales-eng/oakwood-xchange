@@ -31,8 +31,8 @@ test("server-renders an immediately usable GBP/TRY converter", async () => {
   const html = await response.text();
   assert.match(html, /<title>Cebimde Kur — TL ↔ Sterlin<\/title>/);
   assert.match(html, /aria-label="Türk lirası tutarı" value="1000"/);
-  assert.match(html, /aria-label="İngiliz sterlini tutarı" value="15,51"/);
-  assert.match(html, /1 GBP = 64,491 TL/);
+  assert.match(html, /aria-label="İngiliz sterlini tutarı" value="15,49"/);
+  assert.match(html, /1 GBP = 64,564 TL/);
   assert.match(html, /Son kur tarihi:/);
   assert.match(html, /Hesapladığınız tutarlar kaydedilmez/);
   assert.match(html, /Oakwood Apps tarafından hazırlandı/);
@@ -42,23 +42,29 @@ test("server-renders an immediately usable GBP/TRY converter", async () => {
 });
 
 test("ships last-rate fallback and installable offline assets", async () => {
-  const [page, manifest, serviceWorker] = await Promise.all([
+  const [page, rateCache, rates, provider, manifest, serviceWorker] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/rate-cache.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/rates.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/frankfurter.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/manifest.ts", import.meta.url), "utf8"),
     readFile(new URL("../public/sw.js", import.meta.url), "utf8"),
   ]);
 
-  assert.match(page, /const PACKAGED_RATE/);
-  assert.match(page, /localStorage\.getItem\(STORAGE_KEY\)/);
+  assert.match(page, /loadRateTable\(localStorage\)/);
+  assert.match(page, /saveRateTable\(localStorage, latest\)/);
   assert.match(page, /new AbortController\(\)/);
   assert.match(page, /setTimeout\(\(\) => controller\.abort\(\), 3000\)/);
   assert.match(page, /REFRESH_COOLDOWN_MS = 30_000/);
-  assert.match(page, /MIN_VALID_RATE = 10/);
-  assert.match(page, /MAX_VALID_RATE = 250/);
-  assert.match(page, /validRate\(latest\)/);
-  assert.match(page, /validRate\(cached\)/);
   assert.match(page, /beforeinstallprompt/);
   assert.match(page, /Ana Ekrana Ekle/);
+  assert.match(rateCache, /cebimde-kur-rates-v2/);
+  assert.match(rateCache, /cebimde-kur-gbp-try/);
+  assert.match(rates, /PACKAGED_RATE_TABLE/);
+  assert.match(rates, /TRY:\s*64\.564/);
+  assert.match(rates, /EUR:\s*1\.1692/);
+  assert.match(rates, /USD:\s*1\.3504/);
+  assert.match(provider, /api\.frankfurter\.dev\/v2\/rates/);
 
   assert.match(manifest, /display:\s*"standalone"/);
   assert.match(manifest, /icon-192\.png\?v=3/);
