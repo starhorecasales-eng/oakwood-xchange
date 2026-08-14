@@ -2,69 +2,28 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
-type StoredRate = {
-  rate: number;
-  date: string;
-  savedAt?: number;
-};
+import { fetchLatestRateTable } from "@/lib/frankfurter";
+import {
+  createMoney,
+  formatInputAmount,
+  formatMoney,
+  parseLocalizedAmount,
+} from "@/lib/money";
+import { loadRateTable, saveRateTable } from "@/lib/rate-cache";
+import {
+  convertMoney,
+  PACKAGED_RATE_TABLE,
+  rateBetween,
+  type RateTable,
+} from "@/lib/rates";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
-const STORAGE_KEY = "cebimde-kur-gbp-try";
 const INSTALL_DISMISSED_KEY = "cebimde-kur-install-dismissed";
-const RATE_URL = "https://api.frankfurter.dev/v2/rates?base=GBP&quotes=TRY";
 const REFRESH_COOLDOWN_MS = 30_000;
-const MIN_VALID_RATE = 10;
-const MAX_VALID_RATE = 250;
-const PACKAGED_RATE: StoredRate = {
-  rate: 64.491,
-  date: "2026-08-12",
-};
-
-function parseAmount(value: string) {
-  const normalized = value.trim().replace(/\s/g, "").replace(",", ".");
-  if (!normalized || normalized === ".") return null;
-  const number = Number(normalized);
-  return Number.isFinite(number) && number >= 0 ? number : null;
-}
-
-function validRate(value: unknown): value is StoredRate {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<StoredRate>;
-  if (
-    !Number.isFinite(candidate.rate) ||
-    Number(candidate.rate) < MIN_VALID_RATE ||
-    Number(candidate.rate) > MAX_VALID_RATE ||
-    typeof candidate.date !== "string" ||
-    !/^\d{4}-\d{2}-\d{2}$/.test(candidate.date)
-  ) {
-    return false;
-  }
-
-  const timestamp = Date.parse(`${candidate.date}T12:00:00Z`);
-  const tomorrow = Date.now() + 24 * 60 * 60 * 1000;
-  return Number.isFinite(timestamp) && timestamp <= tomorrow;
-}
-
-function inputAmount(value: number, maximumFractionDigits = 2) {
-  return new Intl.NumberFormat("tr-TR", {
-    useGrouping: false,
-    maximumFractionDigits,
-  }).format(value);
-}
-
-function displayAmount(value: number, currency: "TRY" | "GBP") {
-  return new Intl.NumberFormat("tr-TR", {
-    style: "currency",
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
-}
 
 function readableDate(date: string) {
   if (!date) return "";
@@ -76,11 +35,12 @@ function readableDate(date: string) {
 }
 
 export default function Home() {
-  const [rate, setRate] = useState<number>(PACKAGED_RATE.rate);
-  const [rateDate, setRateDate] = useState(PACKAGED_RATE.date);
+  const [rateTable, setRateTable] = useState<RateTable>(PACKAGED_RATE_TABLE);
   const [tryValue, setTryValue] = useState("1000");
   const [gbpValue, setGbpValue] = useState(
-    inputAmount(1000 / PACKAGED_RATE.rate),
+    formatInputAmount(
+      convertMoney(createMoney(1000, "TRY"), "GBP", PACKAGED_RATE_TABLE).amount,
+    ),
   );
   const [activeCurrency, setActiveCurrency] = useState<"TRY" | "GBP">("TRY");
   const [status, setStatus] = useState<"loading" | "live" | "cached" | "error">(
@@ -93,14 +53,26 @@ export default function Home() {
   );
   const [showIosSteps, setShowIosSteps] = useState(false);
 
-  const convertFromTry = useCallback((value: string, currentRate: number) => {
-    const amount = parseAmount(value);
-    setGbpValue(amount === null ? "" : inputAmount(amount / currentRate));
+  const convertFromTry = useCallback((value: string, currentRates: RateTable) => {
+    const amount = parseLocalizedAmount(value);
+    setGbpValue(
+      amount === null
+        ? ""
+        : formatInputAmount(
+          convertMoney(createMoney(amount, "TRY"), "GBP", currentRates).amount,
+        ),
+    );
   }, []);
 
-  const convertFromGbp = useCallback((value: string, currentRate: number) => {
-    const amount = parseAmount(value);
-    setTryValue(amount === null ? "" : inputAmount(amount * currentRate));
+  const convertFromGbp = useCallback((value: string, currentRates: RateTable) => {
+    const amount = parseLocalizedAmount(value);
+    setTryValue(
+      amount === null
+        ? ""
+        : formatInputAmount(
+          convertMoney(createMoney(amount, "GBP"), "TRY", currentRates).amount,
+        ),
+    );
   }, []);
 
   const refreshRate = useCallback(async () => {
@@ -111,57 +83,26 @@ export default function Home() {
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 3000);
     try {
-      const response = await fetch(RATE_URL, {
-        cache: "no-store",
-        signal: controller.signal,
-      });
-      if (!response.ok) throw new Error("Kur alınamadı");
-
-      const payload = (await response.json()) as Array<{
-        date: string;
-        base: string;
-        quote: string;
-        rate: number;
-      }>;
-      const latest = payload.find((item) => item.base === "GBP" && item.quote === "TRY");
-      if (!validRate(latest)) throw new Error("Geçersiz kur");
-
-      setRate(latest.rate);
-      setRateDate(latest.date);
+      const latest = await fetchLatestRateTable(controller.signal);
+      setRateTable(latest);
       setStatus("live");
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          rate: latest.rate,
-          date: latest.date,
-          savedAt: Date.now(),
-        } satisfies StoredRate),
-      );
+      saveRateTable(localStorage, latest);
 
-      if (activeCurrency === "TRY") convertFromTry(tryValue, latest.rate);
-      else convertFromGbp(gbpValue, latest.rate);
+      if (activeCurrency === "TRY") convertFromTry(tryValue, latest);
+      else convertFromGbp(gbpValue, latest);
     } catch {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        try {
-          const cached = JSON.parse(stored) as StoredRate;
-          if (validRate(cached)) {
-            setRate(cached.rate);
-            setRateDate(cached.date);
-            setStatus("cached");
-            if (activeCurrency === "TRY") convertFromTry(tryValue, cached.rate);
-            else convertFromGbp(gbpValue, cached.rate);
-            return;
-          }
-        } catch {
-          // Bozuk yerel veriyi sessizce yok say.
-        }
+      const cached = loadRateTable(localStorage);
+      if (cached) {
+        setRateTable(cached);
+        setStatus("cached");
+        if (activeCurrency === "TRY") convertFromTry(tryValue, cached);
+        else convertFromGbp(gbpValue, cached);
+        return;
       }
-      setRate(PACKAGED_RATE.rate);
-      setRateDate(PACKAGED_RATE.date);
+      setRateTable(PACKAGED_RATE_TABLE);
       setStatus("cached");
-      if (activeCurrency === "TRY") convertFromTry(tryValue, PACKAGED_RATE.rate);
-      else convertFromGbp(gbpValue, PACKAGED_RATE.rate);
+      if (activeCurrency === "TRY") convertFromTry(tryValue, PACKAGED_RATE_TABLE);
+      else convertFromGbp(gbpValue, PACKAGED_RATE_TABLE);
     } finally {
       window.clearTimeout(timeout);
     }
@@ -231,14 +172,14 @@ export default function Home() {
     const cleaned = value.replace(/[^0-9.,]/g, "");
     setActiveCurrency("TRY");
     setTryValue(cleaned);
-    convertFromTry(cleaned, rate);
+    convertFromTry(cleaned, rateTable);
   };
 
   const handleGbp = (value: string) => {
     const cleaned = value.replace(/[^0-9.,]/g, "");
     setActiveCurrency("GBP");
     setGbpValue(cleaned);
-    convertFromGbp(cleaned, rate);
+    convertFromGbp(cleaned, rateTable);
   };
 
   const switchDirection = () => {
@@ -250,14 +191,15 @@ export default function Home() {
   };
 
   const summary = useMemo(() => {
+    const rate = rateBetween(rateTable, "GBP", "TRY");
     return `1 GBP = ${new Intl.NumberFormat("tr-TR", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 4,
     }).format(rate)} TL`;
-  }, [rate]);
+  }, [rateTable]);
 
-  const tryNumber = parseAmount(tryValue);
-  const gbpNumber = parseAmount(gbpValue);
+  const tryNumber = parseLocalizedAmount(tryValue);
+  const gbpNumber = parseLocalizedAmount(gbpValue);
 
   return (
     <main>
@@ -317,7 +259,9 @@ export default function Home() {
               <b>₺</b>
             </span>
             <span className="amount-preview">
-              {tryNumber === null ? "Tutar girin" : displayAmount(tryNumber, "TRY")}
+              {tryNumber === null
+                ? "Tutar girin"
+                : formatMoney(createMoney(tryNumber, "TRY"))}
             </span>
           </label>
 
@@ -348,7 +292,9 @@ export default function Home() {
               <b>£</b>
             </span>
             <span className="amount-preview">
-              {gbpNumber === null ? "Tutar girin" : displayAmount(gbpNumber, "GBP")}
+              {gbpNumber === null
+                ? "Tutar girin"
+                : formatMoney(createMoney(gbpNumber, "GBP"))}
             </span>
           </label>
         </div>
@@ -361,7 +307,7 @@ export default function Home() {
             </div>
             <button type="button" onClick={() => void refreshRate()} aria-label="Kuru tekrar yenile">↻</button>
           </div>
-          {rateDate && <p>Son kur tarihi: {readableDate(rateDate)}</p>}
+          {rateTable.date && <p>Son kur tarihi: {readableDate(rateTable.date)}</p>}
           {status === "cached" && (
             <p className="cached-message">Canlı bağlantı yoksa son kurla hesaplama kesintisiz devam eder.</p>
           )}
