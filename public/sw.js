@@ -1,4 +1,4 @@
-const CACHE = "cebimde-kur-v2";
+const CACHE = "cebimde-kur-v3";
 const APP_SHELL = ["/"];
 
 self.addEventListener("install", (event) => {

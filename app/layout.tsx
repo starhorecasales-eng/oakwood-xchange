@@ -33,9 +33,9 @@ export async function generateMetadata(): Promise<Metadata> {
     applicationName: "Cebimde Kur",
     manifest: "/manifest.webmanifest",
     icons: {
-      icon: "/favicon.svg",
-      shortcut: "/favicon.svg",
-      apple: "/icon-180.png",
+      icon: "/favicon.svg?v=3",
+      shortcut: "/favicon.svg?v=3",
+      apple: "/icon-180.png?v=3",
     },
     appleWebApp: {
       capable: true,

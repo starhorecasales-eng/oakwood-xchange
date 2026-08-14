@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="500" viewBox="0 0 1500 500">
+  <g transform="translate(55 70) scale(.322265625)">
+    <rect width="1024" height="1024" rx="240" fill="#102B25"/>
+    <g fill="none" stroke-width="36" stroke-linecap="round">
+      <path d="M195 368V195H368" stroke="#D55B39"/>
+      <path d="M656 195H829V368" stroke="#F4EEDF"/>
+      <path d="M195 656V829H368" stroke="#F4EEDF"/>
+      <path d="M656 829H829V656" stroke="#244D91"/>
+    </g>
+    <text x="287" y="590" font-family="Inter, Arial, sans-serif" font-size="246" font-weight="800" fill="#F4EEDF">₺</text>
+    <text x="464" y="555" font-family="Inter, Arial, sans-serif" font-size="118" font-weight="800" fill="#D55B39">↔</text>
+    <text x="600" y="590" font-family="Inter, Arial, sans-serif" font-size="246" font-weight="800" fill="#F4EEDF">£</text>
+  </g>
+  <text x="455" y="160" font-family="Inter, Arial, sans-serif" font-size="68" font-weight="800" letter-spacing="10" fill="#D55B39">CEBİMDE</text>
+  <text x="455" y="335" font-family="Inter, Arial, sans-serif" font-size="170" font-weight="850" letter-spacing="-8" fill="#102B25">KUR</text>
+</svg>
