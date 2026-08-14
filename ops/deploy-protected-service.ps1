@@ -81,7 +81,11 @@ New-Item -ItemType Directory -Path $protectedTunnelDirectory -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $workspace "dist\client") -Destination (Join-Path $release "dist\client") -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $workspace "ops\server.mjs") -Destination (Join-Path $release "ops\server.mjs") -Force
 Copy-Item -LiteralPath (Join-Path $workspace "ops\http-security.mjs") -Destination (Join-Path $release "ops\http-security.mjs") -Force
-Copy-Item -LiteralPath $nssm -Destination $protectedNssm -Force
+$nssmSourcePath = [IO.Path]::GetFullPath($nssm)
+$nssmDestinationPath = [IO.Path]::GetFullPath($protectedNssm)
+if ($nssmSourcePath -ne $nssmDestinationPath) {
+  Copy-Item -LiteralPath $nssmSourcePath -Destination $nssmDestinationPath -Force
+}
 Copy-Item -LiteralPath (Join-Path $workspace "ops\cloudflared.yml") -Destination $protectedTunnelConfig -Force
 
 & icacls.exe $release /inheritance:r /grant:r "SYSTEM:(OI)(CI)(F)" "Administrators:(OI)(CI)(F)" "LOCAL SERVICE:(OI)(CI)(RX)" | Out-Null

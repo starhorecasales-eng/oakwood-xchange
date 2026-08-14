@@ -35,3 +35,16 @@ test("application rollback leaves an unchanged tunnel running", async () => {
     /Stop-Service -Name \$tunnelServiceName[^}]+Start-Service -Name \$serviceName/,
   );
 });
+
+test("protected deployment does not overwrite its active NSSM executable", async () => {
+  const script = await readFile(scriptUrl, "utf8");
+
+  assert.match(
+    script,
+    /if \(\$nssmSourcePath -ne \$nssmDestinationPath\) \{\s+Copy-Item/,
+  );
+  assert.doesNotMatch(
+    script,
+    /^Copy-Item -LiteralPath \$nssm -Destination \$protectedNssm -Force$/m,
+  );
+});
