@@ -81,10 +81,8 @@ New-Item -ItemType Directory -Path $protectedTunnelDirectory -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $workspace "dist\client") -Destination (Join-Path $release "dist\client") -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $workspace "ops\server.mjs") -Destination (Join-Path $release "ops\server.mjs") -Force
 Copy-Item -LiteralPath (Join-Path $workspace "ops\http-security.mjs") -Destination (Join-Path $release "ops\http-security.mjs") -Force
-$nssmSourcePath = [IO.Path]::GetFullPath($nssm)
-$nssmDestinationPath = [IO.Path]::GetFullPath($protectedNssm)
-if ($nssmSourcePath -ne $nssmDestinationPath) {
-  Copy-Item -LiteralPath $nssmSourcePath -Destination $nssmDestinationPath -Force
+if (-not (Test-Path -LiteralPath $protectedNssm -PathType Leaf)) {
+  Copy-Item -LiteralPath $nssm -Destination $protectedNssm
 }
 Copy-Item -LiteralPath (Join-Path $workspace "ops\cloudflared.yml") -Destination $protectedTunnelConfig -Force
 

@@ -41,10 +41,10 @@ test("protected deployment does not overwrite its active NSSM executable", async
 
   assert.match(
     script,
-    /if \(\$nssmSourcePath -ne \$nssmDestinationPath\) \{\s+Copy-Item/,
+    /if \(-not \(Test-Path -LiteralPath \$protectedNssm -PathType Leaf\)\) \{\s+Copy-Item/,
   );
   assert.doesNotMatch(
     script,
-    /^Copy-Item -LiteralPath \$nssm -Destination \$protectedNssm -Force$/m,
+    /Copy-Item -LiteralPath \$nssm -Destination \$protectedNssm -Force/,
   );
 });
