@@ -16,8 +16,12 @@ function send(path, headers) {
         headers,
       },
       (res) => {
-        res.resume();
-        res.on("end", () => resolve(res));
+        const chunks = [];
+        res.on("data", (chunk) => chunks.push(chunk));
+        res.on("end", () => {
+          res.body = Buffer.concat(chunks).toString("utf8");
+          resolve(res);
+        });
       },
     );
     req.on("error", reject);
@@ -75,6 +79,28 @@ test("production server enforces canonical HTTPS and emits security headers", as
       camera.headers["permissions-policy"],
       "camera=(self), microphone=(), geolocation=()",
     );
+
+    const conversion = await send("/convert/try/gbp/1988", {
+      Host: "xchange.oakwoodapps.co.uk",
+      "X-Forwarded-Proto": "https",
+    });
+    assert.equal(conversion.statusCode, 200);
+    assert.match(conversion.body, /1\.988 TRY kaç GBP/);
+    assert.match(conversion.body, /Gösterge kuru:/);
+    assert.match(conversion.body, /name="robots" content="noindex, follow"/);
+
+    const invalidConversion = await send("/convert/try/btc/1988", {
+      Host: "xchange.oakwoodapps.co.uk",
+      "X-Forwarded-Proto": "https",
+    });
+    assert.equal(invalidConversion.statusCode, 404);
+
+    const blockedImageRuntime = await send("/_vinext/image?url=test", {
+      Host: "xchange.oakwoodapps.co.uk",
+      "X-Forwarded-Proto": "https",
+    });
+    assert.equal(blockedImageRuntime.statusCode, 404);
+    assert.equal(blockedImageRuntime.body, "Not Found");
 
     const insecure = await send("/test?q=1", {
       Host: "xchange.oakwoodapps.co.uk",

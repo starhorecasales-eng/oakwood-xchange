@@ -2,7 +2,7 @@
 
 The site runs locally as the Windows service `OakwoodXchange` on
 `127.0.0.1:3027`. A small front server in `ops/server.mjs` serves the built
-browser assets and forwards page rendering internally to vinext on port 3028.
+browser assets directly and invokes the bundled vinext worker for dynamic routes.
 The existing `STAR Tunnel` Windows service publishes it as
 `https://xchange.oakwoodapps.co.uk` through Cloudflare Tunnel.
 

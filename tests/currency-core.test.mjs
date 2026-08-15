@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { CURRENCIES, isCurrencyCode } from "../lib/currency.ts";
+import { parseConversionRoute } from "../lib/conversion-route.ts";
 import { fetchLatestRateTable } from "../lib/frankfurter.ts";
 import {
   createMoney,
@@ -51,6 +52,22 @@ test("defines the four planned currencies in one registry", () => {
   assert.equal(CURRENCIES.USD.symbol, "$");
   assert.equal(isCurrencyCode("EUR"), true);
   assert.equal(isCurrencyCode("BTC"), false);
+});
+
+test("normalizes valid conversion URLs and rejects crawl-trap variants", () => {
+  assert.deepEqual(parseConversionRoute("TRY", "gbp", "1988.50"), {
+    from: "TRY",
+    to: "GBP",
+    amount: 1988.5,
+    amountSegment: "1988.5",
+    canonicalPath: "/convert/try/gbp/1988.5",
+  });
+  assert.equal(parseConversionRoute("try", "try", "10"), null);
+  assert.equal(parseConversionRoute("try", "btc", "10"), null);
+  assert.equal(parseConversionRoute("try", "gbp", "01"), null);
+  assert.equal(parseConversionRoute("try", "gbp", "1,000"), null);
+  assert.equal(parseConversionRoute("try", "gbp", "1.234"), null);
+  assert.equal(parseConversionRoute("try", "gbp", "0"), null);
 });
 
 test("parses localized amounts and rounds at currency precision", () => {

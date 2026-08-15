@@ -1,9 +1,10 @@
 import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  CANONICAL_HOST,
   canonicalHttpsUrl,
   withSecurityHeaders,
 } from "./http-security.mjs";
@@ -11,6 +12,9 @@ import {
 const projectDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const clientDir = path.join(projectDir, "dist", "client");
 const publicPort = Number.parseInt(process.env.PORT ?? "3027", 10);
+const { default: applicationWorker } = await import(
+  new URL("../dist/server/index.js", import.meta.url)
+);
 
 const contentTypes = new Map([
   [".avif", "image/avif"],
@@ -53,6 +57,46 @@ function localFileFor(rawUrl) {
   const candidate = path.resolve(clientDir, relativePath);
   const clientPrefix = `${path.resolve(clientDir)}${path.sep}`;
   return candidate.startsWith(clientPrefix) ? candidate : null;
+}
+
+async function fetchStaticAsset(request) {
+  const filename = localFileFor(request.url);
+  if (!filename) return new Response("Not Found", { status: 404 });
+  try {
+    const info = await stat(filename);
+    if (!info.isFile()) return new Response("Not Found", { status: 404 });
+    const extension = path.extname(filename).toLowerCase();
+    return new Response(await readFile(filename), {
+      headers: { "Content-Type": contentTypes.get(extension) ?? "application/octet-stream" },
+    });
+  } catch {
+    return new Response("Not Found", { status: 404 });
+  }
+}
+
+function requestHeaders(req) {
+  const headers = new Headers();
+  for (const [name, value] of Object.entries(req.headers)) {
+    if (Array.isArray(value)) value.forEach((item) => headers.append(name, item));
+    else if (value !== undefined) headers.set(name, value);
+  }
+  return headers;
+}
+
+async function serveDynamic(req, res) {
+  if (req.method !== "GET" && req.method !== "HEAD") return false;
+  if (!requestPathname(req).startsWith("/convert/")) return false;
+  const requestUrl = new URL(req.url ?? "/", `https://${CANONICAL_HOST}`);
+  const response = await applicationWorker.fetch(
+    new Request(requestUrl, { method: req.method, headers: requestHeaders(req) }),
+    { ASSETS: { fetch: fetchStaticAsset } },
+    { waitUntil() {}, passThroughOnException() {} },
+  );
+  const headers = Object.fromEntries(response.headers.entries());
+  const body = req.method === "HEAD" ? null : Buffer.from(await response.arrayBuffer());
+  res.writeHead(response.status, secureHeaders(req, headers));
+  res.end(body);
+  return true;
 }
 
 async function serveStatic(req, res) {
@@ -99,6 +143,7 @@ const server = createServer(async (req, res) => {
     }
 
     if (await serveStatic(req, res)) return;
+    if (await serveDynamic(req, res)) return;
     res.writeHead(404, secureHeaders(req, {
       "Cache-Control": "no-store",
       "Content-Type": "text/plain; charset=utf-8",
