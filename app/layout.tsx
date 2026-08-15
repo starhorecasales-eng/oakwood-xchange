@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
+import { PRODUCT_COPY, PRODUCT_IDENTITY } from "@/lib/product";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -27,9 +28,9 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     metadataBase,
-    title: "Cebimde Kur — TL ↔ Sterlin",
-    description: "Türk lirası ve İngiliz sterlini arasında hızlı, iki yönlü döviz çevirici.",
-    applicationName: "Cebimde Kur",
+    title: PRODUCT_COPY.title,
+    description: PRODUCT_COPY.description,
+    applicationName: PRODUCT_IDENTITY.publicName,
     manifest: "/manifest.webmanifest",
     icons: {
       icon: "/favicon.svg?v=3",
@@ -39,18 +40,18 @@ export async function generateMetadata(): Promise<Metadata> {
     appleWebApp: {
       capable: true,
       statusBarStyle: "black-translucent",
-      title: "Cebimde Kur",
+      title: PRODUCT_IDENTITY.publicName,
     },
     openGraph: {
-      title: "Cebimde Kur — TL ↔ Sterlin",
-      description: "Türkiye’de hızlı fiyat hesabı. TL ve sterlin arasında anında çevir.",
+      title: PRODUCT_COPY.title,
+      description: PRODUCT_COPY.socialDescription,
       type: "website",
       images: metadataBase ? [{ url: new URL("/og.png", metadataBase).toString() }] : [],
     },
     twitter: {
       card: "summary_large_image",
-      title: "Cebimde Kur — TL ↔ Sterlin",
-      description: "Türkiye’de hızlı fiyat hesabı. TL ve sterlin arasında anında çevir.",
+      title: PRODUCT_COPY.title,
+      description: PRODUCT_COPY.socialDescription,
       images: metadataBase ? [new URL("/og.png", metadataBase).toString()] : [],
     },
   };
@@ -58,7 +59,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="tr">
+    <html lang={PRODUCT_IDENTITY.defaultLanguage}>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         {children}
       </body>
