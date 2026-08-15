@@ -59,6 +59,10 @@ test("ships last-rate fallback and installable offline assets", async () => {
   assert.match(page, /REFRESH_COOLDOWN_MS = 30_000/);
   assert.match(page, /beforeinstallprompt/);
   assert.match(page, /Ana Ekrana Ekle/);
+  assert.match(page, /setCurrencyOrder\(nextOrder\)/);
+  assert.match(page, /renderCurrencyBlock\(currencyOrder\[0\]\)/);
+  assert.match(page, /renderCurrencyBlock\(currencyOrder\[1\]\)/);
+  assert.match(page, /aria-live="polite"/);
   assert.match(rateCache, /cebimde-kur-rates-v3/);
   assert.match(rateCache, /cebimde-kur-rates-v2/);
   assert.match(rateCache, /cebimde-kur-gbp-try/);

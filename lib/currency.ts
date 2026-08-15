@@ -49,3 +49,9 @@ export const CURRENCIES: Readonly<Record<CurrencyCode, CurrencyDefinition>> = {
 export function isCurrencyCode(value: unknown): value is CurrencyCode {
   return typeof value === "string" && CURRENCY_CODES.includes(value as CurrencyCode);
 }
+
+export function swapCurrencyPair<First extends CurrencyCode, Second extends CurrencyCode>(
+  pair: readonly [First, Second],
+): readonly [Second, First] {
+  return [pair[1], pair[0]];
+}

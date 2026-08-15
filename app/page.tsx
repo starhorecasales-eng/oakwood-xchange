@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { swapCurrencyPair } from "@/lib/currency";
 import { fetchLatestRateTable } from "@/lib/frankfurter";
 import {
   createMoney,
@@ -24,6 +25,9 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
+type ConverterCurrency = "TRY" | "GBP";
+type ConverterOrder = readonly [ConverterCurrency, ConverterCurrency];
+
 const INSTALL_DISMISSED_KEY = "cebimde-kur-install-dismissed";
 const REFRESH_COOLDOWN_MS = 30_000;
 
@@ -44,7 +48,9 @@ export default function Home() {
       convertMoney(createMoney(1000, "TRY"), "GBP", PACKAGED_RATE_TABLE).amount,
     ),
   );
-  const [activeCurrency, setActiveCurrency] = useState<"TRY" | "GBP">("TRY");
+  const [activeCurrency, setActiveCurrency] = useState<ConverterCurrency>("TRY");
+  const [currencyOrder, setCurrencyOrder] = useState<ConverterOrder>(["TRY", "GBP"]);
+  const [swapAnnouncement, setSwapAnnouncement] = useState("");
   const [status, setStatus] = useState<"loading" | "live" | "cached" | "error">(
     "cached",
   );
@@ -185,10 +191,17 @@ export default function Home() {
   };
 
   const switchDirection = () => {
-    setActiveCurrency((current) => (current === "TRY" ? "GBP" : "TRY"));
-    const next = activeCurrency === "TRY" ? "GBP" : "TRY";
-    requestAnimationFrame(() => {
-      document.getElementById(next === "TRY" ? "try-input" : "gbp-input")?.focus();
+    const nextOrder = swapCurrencyPair(currencyOrder);
+    const nextTop = nextOrder[0];
+    setCurrencyOrder(nextOrder);
+    setActiveCurrency(nextTop);
+    setSwapAnnouncement(
+      nextTop === "TRY"
+        ? "Türk lirası üst alana taşındı."
+        : "İngiliz sterlini üst alana taşındı.",
+    );
+    window.requestAnimationFrame(() => {
+      document.getElementById(nextTop === "TRY" ? "try-input" : "gbp-input")?.focus();
     });
   };
 
@@ -204,6 +217,48 @@ export default function Home() {
 
   const tryNumber = parseLocalizedAmount(tryValue);
   const gbpNumber = parseLocalizedAmount(gbpValue);
+
+  const renderCurrencyBlock = (currency: ConverterCurrency) => {
+    const isTry = currency === "TRY";
+    const value = isTry ? tryValue : gbpValue;
+    const numericValue = isTry ? tryNumber : gbpNumber;
+    const name = isTry ? "Türk lirası" : "İngiliz sterlini";
+    const inputId = isTry ? "try-input" : "gbp-input";
+
+    return (
+      <label
+        key={currency}
+        className={`currency-block ${isTry ? "lira" : "pound"} ${activeCurrency === currency ? "active" : ""}`}
+        data-currency={currency}
+      >
+        <span className="currency-heading">
+          <span className="flag" aria-hidden="true">{isTry ? "TR" : "GB"}</span>
+          <span>
+            <strong>{name}</strong>
+            <small>{currency}</small>
+          </span>
+        </span>
+        <span className="amount-row">
+          <input
+            id={inputId}
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            value={value}
+            onFocus={() => setActiveCurrency(currency)}
+            onChange={(event) => (isTry ? handleTry(event.target.value) : handleGbp(event.target.value))}
+            aria-label={`${name} tutarı`}
+          />
+          <b>{isTry ? "₺" : "£"}</b>
+        </span>
+        <span className="amount-preview">
+          {numericValue === null
+            ? "Tutar girin"
+            : formatMoney(createMoney(numericValue, currency))}
+        </span>
+      </label>
+    );
+  };
 
   return (
     <main>
@@ -243,66 +298,20 @@ export default function Home() {
         </div>
 
         <div className="converter-card">
-          <label className={`currency-block lira ${activeCurrency === "TRY" ? "active" : ""}`}>
-            <span className="currency-heading">
-              <span className="flag" aria-hidden="true">TR</span>
-              <span>
-                <strong>Türk lirası</strong>
-                <small>TRY</small>
-              </span>
-            </span>
-            <span className="amount-row">
-              <input
-                id="try-input"
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                value={tryValue}
-                onFocus={() => setActiveCurrency("TRY")}
-                onChange={(event) => handleTry(event.target.value)}
-                aria-label="Türk lirası tutarı"
-              />
-              <b>₺</b>
-            </span>
-            <span className="amount-preview">
-              {tryNumber === null
-                ? "Tutar girin"
-                : formatMoney(createMoney(tryNumber, "TRY"))}
-            </span>
-          </label>
+          {renderCurrencyBlock(currencyOrder[0])}
 
           <div className="swap-row" aria-hidden="true"><span /></div>
-          <button className="swap-button" type="button" onClick={switchDirection} aria-label="Giriş yönünü değiştir">
+          <button
+            className="swap-button"
+            type="button"
+            onClick={switchDirection}
+            aria-label={currencyOrder[1] === "TRY" ? "Türk lirasını üst alana taşı" : "İngiliz sterlinini üst alana taşı"}
+          >
             <span>⇅</span>
           </button>
 
-          <label className={`currency-block pound ${activeCurrency === "GBP" ? "active" : ""}`}>
-            <span className="currency-heading">
-              <span className="flag" aria-hidden="true">GB</span>
-              <span>
-                <strong>İngiliz sterlini</strong>
-                <small>GBP</small>
-              </span>
-            </span>
-            <span className="amount-row">
-              <input
-                id="gbp-input"
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                value={gbpValue}
-                onFocus={() => setActiveCurrency("GBP")}
-                onChange={(event) => handleGbp(event.target.value)}
-                aria-label="İngiliz sterlini tutarı"
-              />
-              <b>£</b>
-            </span>
-            <span className="amount-preview">
-              {gbpNumber === null
-                ? "Tutar girin"
-                : formatMoney(createMoney(gbpNumber, "GBP"))}
-            </span>
-          </label>
+          {renderCurrencyBlock(currencyOrder[1])}
+          <p className="sr-only" aria-live="polite">{swapAnnouncement}</p>
         </div>
 
         <footer>
