@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { CURRENCIES, isCurrencyCode } from "../lib/currency.ts";
+import { CURRENCIES, isCurrencyCode, swapCurrencyPair } from "../lib/currency.ts";
 import { parseConversionRoute } from "../lib/conversion-route.ts";
 import { fetchLatestRateTable } from "../lib/frankfurter.ts";
 import {
@@ -52,6 +52,11 @@ test("defines the four planned currencies in one registry", () => {
   assert.equal(CURRENCIES.USD.symbol, "$");
   assert.equal(isCurrencyCode("EUR"), true);
   assert.equal(isCurrencyCode("BTC"), false);
+});
+
+test("swaps a currency pair without changing either currency", () => {
+  assert.deepEqual(swapCurrencyPair(["TRY", "GBP"]), ["GBP", "TRY"]);
+  assert.deepEqual(swapCurrencyPair(["GBP", "TRY"]), ["TRY", "GBP"]);
 });
 
 test("normalizes valid conversion URLs and rejects crawl-trap variants", () => {
