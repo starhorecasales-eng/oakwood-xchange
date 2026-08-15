@@ -17,6 +17,10 @@ test("protected deployment waits for shutdown and supports LocalService", async 
     script,
     /-Setting "AppParameters" -Value @\("ops\\server\.mjs"\)/,
   );
+  assert.match(
+    script,
+    /Copy-Item[^\n]+"dist\\server"[^\n]+"dist\\server"[^\n]+-Recurse -Force/,
+  );
   assert.doesNotMatch(script, /-Setting "AppParameters"[^\n]+Join-Path \$release/);
 });
 
