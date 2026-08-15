@@ -1,5 +1,8 @@
 # Oakwood Xchange — Cebimde Kur
 
+Ürün adı ve gelecekteki global marka geçiş sınırları için
+[brand architecture](docs/brand-architecture.md) belgesine bakın.
+
 Mobil öncelikli, kurulabilir GBP/TRY kur dönüştürücü. Canlı kur alınamazsa kullanıcıyı bekletmeden tarayıcıda saklanan son geçerli kurla çalışmaya devam eder.
 
 Canlı adres: [xchange.oakwoodapps.co.uk](https://xchange.oakwoodapps.co.uk)

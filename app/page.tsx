@@ -10,6 +10,7 @@ import {
   parseLocalizedAmount,
 } from "@/lib/money";
 import { loadRateTable, saveRateTable } from "@/lib/rate-cache";
+import { PRODUCT_COPY, PRODUCT_IDENTITY } from "@/lib/product";
 import {
   convertMoney,
   PACKAGED_RATE_TABLE,
@@ -211,7 +212,7 @@ export default function Home() {
           <Image
             className="brand-lockup"
             src="/brand/logo-primary-no-tagline.svg"
-            alt="Cebimde Kur"
+            alt={PRODUCT_IDENTITY.publicName}
             width={1500}
             height={500}
             priority
@@ -324,7 +325,7 @@ export default function Home() {
           <p className="disclaimer">Banka, kart ve döviz bürosu kurları farklı olabilir.</p>
           <div className="site-credit">
             <span>Hesapladığınız tutarlar kaydedilmez.</span>
-            <span>Oakwood Apps tarafından hazırlandı.</span>
+            <span>{PRODUCT_COPY.ownerCredit}</span>
           </div>
         </footer>
 
