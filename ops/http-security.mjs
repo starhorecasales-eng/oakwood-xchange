@@ -1,7 +1,8 @@
 export const CANONICAL_HOST = "xchange.oakwoodapps.co.uk";
 
 export function contentSecurityPolicyForPath(pathname = "/") {
-  const usesOcrWasm = pathname === "/camera"
+  const usesOcrWasm = pathname === "/"
+    || pathname === "/camera"
     || pathname.startsWith("/camera/")
     || pathname.startsWith("/ocr/");
 
@@ -24,7 +25,7 @@ export function contentSecurityPolicyForPath(pathname = "/") {
 
 export const SECURITY_HEADERS = Object.freeze({
   "Content-Security-Policy": contentSecurityPolicyForPath("/"),
-  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+  "Permissions-Policy": "camera=(self), microphone=(), geolocation=()",
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Strict-Transport-Security": "max-age=86400",
   "X-Content-Type-Options": "nosniff",
@@ -32,7 +33,9 @@ export const SECURITY_HEADERS = Object.freeze({
 });
 
 export function permissionsPolicyForPath(pathname = "/") {
-  const cameraEnabled = pathname === "/camera" || pathname.startsWith("/camera/");
+  const cameraEnabled = pathname === "/"
+    || pathname === "/camera"
+    || pathname.startsWith("/camera/");
   return `${cameraEnabled ? "camera=(self)" : "camera=()"}, microphone=(), geolocation=()`;
 }
 

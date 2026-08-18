@@ -67,8 +67,9 @@ test("production server enforces canonical HTTPS and emits security headers", as
     assert.match(secure.headers["content-security-policy"], /frame-ancestors 'none'/);
     assert.equal(
       secure.headers["permissions-policy"],
-      "camera=(), microphone=(), geolocation=()",
+      "camera=(self), microphone=(), geolocation=()",
     );
+    assert.match(secure.headers["content-security-policy"], /wasm-unsafe-eval/);
 
     const camera = await send("/camera", {
       Host: "xchange.oakwoodapps.co.uk",

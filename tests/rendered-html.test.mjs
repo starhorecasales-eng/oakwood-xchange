@@ -23,18 +23,18 @@ async function render() {
   );
 }
 
-test("server-renders an immediately usable GBP/TRY converter", async () => {
+test("server-renders an immediately usable TRY/GBP/EUR converter with camera", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Cebimde Kur — TL ↔ Sterlin<\/title>/);
+  assert.match(html, /<title>Cebimde Kur — TL, Sterlin ve Euro<\/title>/);
   assert.match(html, /aria-label="Türk lirası tutarı" value="1000"/);
   assert.match(html, /aria-label="İngiliz sterlini tutarı" value="15,49"/);
-  assert.match(html, /1 GBP = 64,564 TL/);
-  assert.match(html, /Son kur tarihi:/);
-  assert.match(html, /Hesapladığınız tutarlar kaydedilmez/);
+  assert.match(html, /Euro.*EUR/);
+  assert.match(html, /1 TRY = 0,0155 GBP/);
+  assert.match(html, /Kamerayla çevir/);
   assert.match(html, /Oakwood Apps tarafından hazırlandı/);
   assert.match(html, /brand\/logo-primary-no-tagline\.svg/);
   assert.match(html, /rel="manifest" href="\/manifest\.webmanifest"/);
@@ -61,14 +61,14 @@ test("ships last-rate fallback and installable offline assets", async () => {
   assert.match(page, /beforeinstallprompt/);
   assert.match(page, /Ana Ekrana Ekle/);
   assert.match(page, /setCurrencyOrder\(nextOrder\)/);
-  assert.match(page, /renderCurrencyBlock\(currencyOrder\[0\]\)/);
-  assert.match(page, /renderCurrencyBlock\(currencyOrder\[1\]\)/);
+  assert.match(page, /renderCurrencyBlock\(currencyOrder\[0\], "top"\)/);
+  assert.match(page, /renderCurrencyBlock\(currencyOrder\[1\], "bottom"\)/);
   assert.match(page, /aria-live="polite"/);
-  assert.match(page, /href="\/camera"/);
+  assert.match(page, /<CameraScanner compact rateTable=\{rateTable\}/);
   assert.match(camera, /navigator\.mediaDevices\.getUserMedia/);
   assert.match(camera, /workerBlobURL: false/);
   assert.match(camera, /workerPath: "\/ocr\/worker\.min\.js\?v=7\.0\.0-csp2"/);
-  assert.match(camera, /Fotoğraf cihazınızda işlenir|Kamera karesi/);
+  assert.match(camera, /Fotoğraf cihazınızda işlenir|Fotoğraflar cihazında kalır/);
   assert.match(rateCache, /cebimde-kur-rates-v3/);
   assert.match(rateCache, /cebimde-kur-rates-v2/);
   assert.match(rateCache, /cebimde-kur-gbp-try/);
@@ -81,7 +81,7 @@ test("ships last-rate fallback and installable offline assets", async () => {
   assert.match(manifest, /display:\s*"standalone"/);
   assert.match(manifest, /icon-192\.png\?v=3/);
   assert.match(manifest, /icon-512\.png\?v=3/);
-  assert.match(serviceWorker, /cebimde-kur-v4/);
+  assert.match(serviceWorker, /cebimde-kur-v5/);
   assert.match(serviceWorker, /caches\.match\(event\.request\)/);
   assert.match(serviceWorker, /event\.request\.mode === "navigate"/);
   assert.match(serviceWorker, /response\.ok/);

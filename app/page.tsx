@@ -1,14 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { swapCurrencyPair } from "@/lib/currency";
+import CameraScanner from "@/app/camera/CameraScanner";
+import { CURRENCIES, swapCurrencyPair } from "@/lib/currency";
 import { fetchLatestRateTable } from "@/lib/frankfurter";
 import {
   createMoney,
   formatInputAmount,
-  formatMoney,
   parseLocalizedAmount,
 } from "@/lib/money";
 import { loadRateTable, saveRateTable } from "@/lib/rate-cache";
@@ -26,8 +25,10 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
-type ConverterCurrency = "TRY" | "GBP";
+const CONVERTER_CURRENCIES = ["TRY", "GBP", "EUR"] as const;
+type ConverterCurrency = (typeof CONVERTER_CURRENCIES)[number];
 type ConverterOrder = readonly [ConverterCurrency, ConverterCurrency];
+type ConverterSlot = "top" | "bottom";
 
 const INSTALL_DISMISSED_KEY = "cebimde-kur-install-dismissed";
 const REFRESH_COOLDOWN_MS = 30_000;
@@ -41,15 +42,25 @@ function readableDate(date: string) {
   }).format(new Date(`${date}T12:00:00`));
 }
 
+function convertedInput(
+  value: string,
+  from: ConverterCurrency,
+  to: ConverterCurrency,
+  rates: RateTable,
+) {
+  const amount = parseLocalizedAmount(value);
+  return amount === null
+    ? ""
+    : formatInputAmount(convertMoney(createMoney(amount, from), to, rates).amount);
+}
+
 export default function Home() {
   const [rateTable, setRateTable] = useState<RateTable>(PACKAGED_RATE_TABLE);
-  const [tryValue, setTryValue] = useState("1000");
-  const [gbpValue, setGbpValue] = useState(
-    formatInputAmount(
-      convertMoney(createMoney(1000, "TRY"), "GBP", PACKAGED_RATE_TABLE).amount,
-    ),
+  const [topValue, setTopValue] = useState("1000");
+  const [bottomValue, setBottomValue] = useState(
+    convertedInput("1000", "TRY", "GBP", PACKAGED_RATE_TABLE),
   );
-  const [activeCurrency, setActiveCurrency] = useState<ConverterCurrency>("TRY");
+  const [activeSlot, setActiveSlot] = useState<ConverterSlot>("top");
   const [currencyOrder, setCurrencyOrder] = useState<ConverterOrder>(["TRY", "GBP"]);
   const [swapAnnouncement, setSwapAnnouncement] = useState("");
   const [status, setStatus] = useState<"loading" | "live" | "cached" | "error">(
@@ -62,27 +73,13 @@ export default function Home() {
   );
   const [showIosSteps, setShowIosSteps] = useState(false);
 
-  const convertFromTry = useCallback((value: string, currentRates: RateTable) => {
-    const amount = parseLocalizedAmount(value);
-    setGbpValue(
-      amount === null
-        ? ""
-        : formatInputAmount(
-          convertMoney(createMoney(amount, "TRY"), "GBP", currentRates).amount,
-        ),
-    );
-  }, []);
-
-  const convertFromGbp = useCallback((value: string, currentRates: RateTable) => {
-    const amount = parseLocalizedAmount(value);
-    setTryValue(
-      amount === null
-        ? ""
-        : formatInputAmount(
-          convertMoney(createMoney(amount, "GBP"), "TRY", currentRates).amount,
-        ),
-    );
-  }, []);
+  const recalculate = useCallback((currentRates: RateTable, pair: ConverterOrder) => {
+    if (activeSlot === "top") {
+      setBottomValue(convertedInput(topValue, pair[0], pair[1], currentRates));
+    } else {
+      setTopValue(convertedInput(bottomValue, pair[1], pair[0], currentRates));
+    }
+  }, [activeSlot, bottomValue, topValue]);
 
   const refreshRate = useCallback(async () => {
     const now = Date.now();
@@ -96,26 +93,16 @@ export default function Home() {
       setRateTable(latest);
       setStatus("live");
       saveRateTable(localStorage, latest);
-
-      if (activeCurrency === "TRY") convertFromTry(tryValue, latest);
-      else convertFromGbp(gbpValue, latest);
+      recalculate(latest, currencyOrder);
     } catch {
-      const cached = loadRateTable(localStorage);
-      if (cached) {
-        setRateTable(cached);
-        setStatus("cached");
-        if (activeCurrency === "TRY") convertFromTry(tryValue, cached);
-        else convertFromGbp(gbpValue, cached);
-        return;
-      }
-      setRateTable(PACKAGED_RATE_TABLE);
+      const fallback = loadRateTable(localStorage) ?? PACKAGED_RATE_TABLE;
+      setRateTable(fallback);
       setStatus("cached");
-      if (activeCurrency === "TRY") convertFromTry(tryValue, PACKAGED_RATE_TABLE);
-      else convertFromGbp(gbpValue, PACKAGED_RATE_TABLE);
+      recalculate(fallback, currencyOrder);
     } finally {
       window.clearTimeout(timeout);
     }
-  }, [activeCurrency, convertFromGbp, convertFromTry, gbpValue, tryValue]);
+  }, [currencyOrder, recalculate]);
 
   useEffect(() => {
     const refreshFrame = window.requestAnimationFrame(() => void refreshRate());
@@ -125,9 +112,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      void navigator.serviceWorker.register("/sw.js");
-    }
+    if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js");
   }, []);
 
   useEffect(() => {
@@ -177,85 +162,97 @@ export default function Home() {
     setInstallMode("hidden");
   };
 
-  const handleTry = (value: string) => {
+  const handleAmount = (slot: ConverterSlot, value: string) => {
     const cleaned = value.replace(/[^0-9.,]/g, "");
-    setActiveCurrency("TRY");
-    setTryValue(cleaned);
-    convertFromTry(cleaned, rateTable);
-  };
-
-  const handleGbp = (value: string) => {
-    const cleaned = value.replace(/[^0-9.,]/g, "");
-    setActiveCurrency("GBP");
-    setGbpValue(cleaned);
-    convertFromGbp(cleaned, rateTable);
+    setActiveSlot(slot);
+    if (slot === "top") {
+      setTopValue(cleaned);
+      setBottomValue(convertedInput(cleaned, currencyOrder[0], currencyOrder[1], rateTable));
+    } else {
+      setBottomValue(cleaned);
+      setTopValue(convertedInput(cleaned, currencyOrder[1], currencyOrder[0], rateTable));
+    }
   };
 
   const switchDirection = () => {
     const nextOrder = swapCurrencyPair(currencyOrder);
-    const nextTop = nextOrder[0];
+    const nextActiveSlot: ConverterSlot = activeSlot === "top" ? "bottom" : "top";
     setCurrencyOrder(nextOrder);
-    setActiveCurrency(nextTop);
+    setTopValue(bottomValue);
+    setBottomValue(topValue);
+    setActiveSlot(nextActiveSlot);
     setSwapAnnouncement(
-      nextTop === "TRY"
-        ? "Türk lirası üst alana taşındı."
-        : "İngiliz sterlini üst alana taşındı.",
+      `${CURRENCIES[nextOrder[0]].name} üst alana, ${CURRENCIES[nextOrder[1]].name} alt alana taşındı.`,
     );
     window.requestAnimationFrame(() => {
-      document.getElementById(nextTop === "TRY" ? "try-input" : "gbp-input")?.focus();
+      document.getElementById(`${nextActiveSlot}-amount-input`)?.focus();
     });
   };
 
+  const changeCurrency = (slot: ConverterSlot, currency: ConverterCurrency) => {
+    const slotIndex = slot === "top" ? 0 : 1;
+    const otherIndex = slotIndex === 0 ? 1 : 0;
+    if (currency === currencyOrder[slotIndex]) return;
+    if (currency === currencyOrder[otherIndex]) {
+      switchDirection();
+      return;
+    }
+
+    const nextOrder = [...currencyOrder] as [ConverterCurrency, ConverterCurrency];
+    nextOrder[slotIndex] = currency;
+    setCurrencyOrder(nextOrder);
+    if (activeSlot === "top") {
+      setBottomValue(convertedInput(topValue, nextOrder[0], nextOrder[1], rateTable));
+    } else {
+      setTopValue(convertedInput(bottomValue, nextOrder[1], nextOrder[0], rateTable));
+    }
+  };
+
   const summary = useMemo(() => {
-    const rate = rateBetween(rateTable, "GBP", "TRY");
-    return `1 GBP = ${new Intl.NumberFormat("tr-TR", {
+    const rate = rateBetween(rateTable, currencyOrder[0], currencyOrder[1]);
+    return `1 ${currencyOrder[0]} = ${new Intl.NumberFormat("tr-TR", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 4,
-    }).format(rate)} TL`;
-  }, [rateTable]);
+    }).format(rate)} ${currencyOrder[1]}`;
+  }, [currencyOrder, rateTable]);
   const freshness = useMemo(() => rateFreshness(rateTable), [rateTable]);
   const displayedStatus = status === "loading" ? "loading" : freshness.state;
 
-  const tryNumber = parseLocalizedAmount(tryValue);
-  const gbpNumber = parseLocalizedAmount(gbpValue);
-
-  const renderCurrencyBlock = (currency: ConverterCurrency) => {
-    const isTry = currency === "TRY";
-    const value = isTry ? tryValue : gbpValue;
-    const numericValue = isTry ? tryNumber : gbpNumber;
-    const name = isTry ? "Türk lirası" : "İngiliz sterlini";
-    const inputId = isTry ? "try-input" : "gbp-input";
-
+  const renderCurrencyBlock = (currency: ConverterCurrency, slot: ConverterSlot) => {
+    const definition = CURRENCIES[currency];
+    const value = slot === "top" ? topValue : bottomValue;
     return (
       <label
-        key={currency}
-        className={`currency-block ${isTry ? "lira" : "pound"} ${activeCurrency === currency ? "active" : ""}`}
+        key={`${slot}-${currency}`}
+        className={`currency-block ${currency.toLowerCase()} ${activeSlot === slot ? "active" : ""}`}
         data-currency={currency}
       >
         <span className="currency-heading">
-          <span className="flag" aria-hidden="true">{isTry ? "TR" : "GB"}</span>
-          <span>
-            <strong>{name}</strong>
-            <small>{currency}</small>
+          <span className="flag" aria-hidden="true">{definition.flag}</span>
+          <span className="currency-select-wrap">
+            <select
+              value={currency}
+              onChange={(event) => changeCurrency(slot, event.target.value as ConverterCurrency)}
+              aria-label={`${slot === "top" ? "Üst" : "Alt"} para birimi`}
+            >
+              {CONVERTER_CURRENCIES.map((option) => (
+                <option key={option} value={option}>{CURRENCIES[option].name} · {option}</option>
+              ))}
+            </select>
           </span>
         </span>
         <span className="amount-row">
           <input
-            id={inputId}
+            id={`${slot}-amount-input`}
             type="text"
             inputMode="decimal"
             autoComplete="off"
             value={value}
-            onFocus={() => setActiveCurrency(currency)}
-            onChange={(event) => (isTry ? handleTry(event.target.value) : handleGbp(event.target.value))}
-            aria-label={`${name} tutarı`}
+            onFocus={() => setActiveSlot(slot)}
+            onChange={(event) => handleAmount(slot, event.target.value)}
+            aria-label={`${definition.name} tutarı`}
           />
-          <b>{isTry ? "₺" : "£"}</b>
-        </span>
-        <span className="amount-preview">
-          {numericValue === null
-            ? "Tutar girin"
-            : formatMoney(createMoney(numericValue, currency))}
+          <b>{definition.symbol}</b>
         </span>
       </label>
     );
@@ -263,7 +260,7 @@ export default function Home() {
 
   return (
     <main>
-      <section className="converter-shell" aria-label="Türk lirası ve İngiliz sterlini dönüştürücü">
+      <section className="converter-shell" aria-label="TRY, GBP ve EUR dönüştürücü">
         <header className="site-header">
           <Image
             className="brand-lockup"
@@ -287,85 +284,68 @@ export default function Home() {
                 ? "Eski kur"
                 : freshness.state === "stale"
                   ? `${freshness.ageDays} günlük kur`
-                  : status === "live"
-                    ? "Güncel"
-                    : "Son kur"}
+                  : status === "live" ? "Güncel" : "Son kur"}
           </button>
         </header>
 
         <div className="intro-copy">
-          <p>Türkiye’de hızlı fiyat hesabı</p>
-          <span>Bir kutuya yaz, diğerini anında gör.</span>
+          <p>Hızlı çevir</p>
         </div>
 
         <div className="converter-card">
-          {renderCurrencyBlock(currencyOrder[0])}
-
+          {renderCurrencyBlock(currencyOrder[0], "top")}
           <div className="swap-row" aria-hidden="true"><span /></div>
           <button
             className="swap-button"
             type="button"
             onClick={switchDirection}
-            aria-label={currencyOrder[1] === "TRY" ? "Türk lirasını üst alana taşı" : "İngiliz sterlinini üst alana taşı"}
+            aria-label="Üst ve alt para birimlerinin yerini değiştir"
           >
             <span>⇅</span>
           </button>
-
-          {renderCurrencyBlock(currencyOrder[1])}
+          {renderCurrencyBlock(currencyOrder[1], "bottom")}
           <p className="sr-only" aria-live="polite">{swapAnnouncement}</p>
         </div>
 
-        <Link className="camera-entry" href="/camera">
-          <span aria-hidden="true">▣</span>
-          <span><strong>Kamerayla fiyat oku</strong><small>Fiyatı çek, karşılığını cihazında gör</small></span>
-          <b aria-hidden="true">→</b>
-        </Link>
+        <section className="camera-panel" aria-labelledby="camera-panel-title">
+          <div className="camera-panel-heading">
+            <div>
+              <strong id="camera-panel-title">Kamerayla çevir</strong>
+            </div>
+            <span>Deneysel</span>
+          </div>
+          <CameraScanner compact rateTable={rateTable} />
+        </section>
 
         <footer>
           <div className="rate-line">
             <div>
               <small>GÖSTERGE KURU</small>
               <strong>{summary}</strong>
+              {rateTable.date && <span>· {readableDate(rateTable.date)}</span>}
             </div>
             <button type="button" onClick={() => void refreshRate()} aria-label="Kuru tekrar yenile">↻</button>
           </div>
-          {rateTable.date && <p>Son kur tarihi: {readableDate(rateTable.date)}</p>}
           {freshness.state === "old" ? (
-            <p className="old-rate-message">Eski kur kullanılıyor; sonuç yaklaşık değerdir. İnternet geldiğinde yenilenecek.</p>
+            <p className="old-rate-message">Eski kur kullanılıyor; sonuç yaklaşık değerdir.</p>
           ) : freshness.state === "stale" ? (
             <p className="cached-message">{freshness.ageDays} günlük kur kullanılıyor; sonuç yaklaşık değerdir.</p>
           ) : status === "cached" && (
-            <p className="cached-message">Canlı bağlantı yoksa son kurla hesaplama kesintisiz devam eder.</p>
+            <p className="cached-message">Canlı bağlantı yoksa son kurla hesaplama devam eder.</p>
           )}
-          {status === "error" && <p className="error-message">İnternet bağlantısını kontrol edip tekrar deneyin.</p>}
-          <p className="disclaimer">Banka, kart ve döviz bürosu kurları farklı olabilir.</p>
           <div className="site-credit">
-            <span>Hesapladığınız tutarlar kaydedilmez.</span>
             <span>{PRODUCT_COPY.ownerCredit}</span>
           </div>
         </footer>
 
         {installMode !== "hidden" && (
           <aside className="install-card" aria-label="Uygulamayı telefona ekle">
-            <button
-              className="install-close"
-              type="button"
-              onClick={dismissInstall}
-              aria-label="Uygulama önerisini kapat"
-            >
-              ×
-            </button>
-            <span className="install-icon" aria-hidden="true">₺£</span>
+            <button className="install-close" type="button" onClick={dismissInstall} aria-label="Uygulama önerisini kapat">×</button>
+            <span className="install-icon" aria-hidden="true">₺£€</span>
             <div className="install-copy">
               <strong>Cebinde hep hazır olsun</strong>
-              <span>
-                {installMode === "ios"
-                  ? "Ana ekranına ekle, uygulama gibi tek dokunuşla aç."
-                  : "Ücretsiz yükle, uygulama gibi tek dokunuşla aç."}
-              </span>
-              {showIosSteps && (
-                <small>Safari’de Paylaş simgesine, ardından “Ana Ekrana Ekle”ye dokun.</small>
-              )}
+              <span>{installMode === "ios" ? "Ana ekranına ekle, tek dokunuşla aç." : "Ücretsiz yükle, tek dokunuşla aç."}</span>
+              {showIosSteps && <small>Safari’de Paylaş simgesine, ardından “Ana Ekrana Ekle”ye dokun.</small>}
             </div>
             <button className="install-button" type="button" onClick={() => void installApp()}>
               {installMode === "ios" ? "Nasıl?" : "Yükle"}
