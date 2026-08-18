@@ -3,10 +3,19 @@ import test from "node:test";
 
 import {
   canonicalHttpsUrl,
+  contentSecurityPolicyForPath,
   permissionsPolicyForPath,
   SECURITY_HEADERS,
   withSecurityHeaders,
 } from "../ops/http-security.mjs";
+
+test("allows WebAssembly only on the camera and local OCR asset routes", () => {
+  assert.doesNotMatch(contentSecurityPolicyForPath("/"), /wasm-unsafe-eval/);
+  assert.match(contentSecurityPolicyForPath("/camera"), /wasm-unsafe-eval/);
+  assert.match(contentSecurityPolicyForPath("/camera/scan"), /wasm-unsafe-eval/);
+  assert.match(contentSecurityPolicyForPath("/ocr/worker.min.js"), /wasm-unsafe-eval/);
+  assert.doesNotMatch(contentSecurityPolicyForPath("/convert/try/gbp/100"), /wasm-unsafe-eval/);
+});
 
 test("redirects only canonical public HTTP requests to a fixed HTTPS host", () => {
   assert.equal(

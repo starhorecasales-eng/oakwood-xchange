@@ -1,13 +1,17 @@
 export const CANONICAL_HOST = "xchange.oakwoodapps.co.uk";
 
-export const SECURITY_HEADERS = Object.freeze({
-  "Content-Security-Policy": [
+export function contentSecurityPolicyForPath(pathname = "/") {
+  const usesOcrWasm = pathname === "/camera"
+    || pathname.startsWith("/camera/")
+    || pathname.startsWith("/ocr/");
+
+  return [
     "default-src 'self'",
     "base-uri 'self'",
     "object-src 'none'",
     "frame-ancestors 'none'",
     "form-action 'self'",
-    "script-src 'self' 'unsafe-inline'",
+    `script-src 'self' 'unsafe-inline'${usesOcrWasm ? " 'wasm-unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
@@ -15,7 +19,11 @@ export const SECURITY_HEADERS = Object.freeze({
     "manifest-src 'self'",
     "worker-src 'self'",
     "upgrade-insecure-requests",
-  ].join("; "),
+  ].join("; ");
+}
+
+export const SECURITY_HEADERS = Object.freeze({
+  "Content-Security-Policy": contentSecurityPolicyForPath("/"),
   "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Strict-Transport-Security": "max-age=86400",
@@ -31,6 +39,7 @@ export function permissionsPolicyForPath(pathname = "/") {
 export function withSecurityHeaders(headers = {}, { pathname = "/" } = {}) {
   const securityHeaders = {
     ...SECURITY_HEADERS,
+    "Content-Security-Policy": contentSecurityPolicyForPath(pathname),
     "Permissions-Policy": permissionsPolicyForPath(pathname),
   };
   const secured = {};
