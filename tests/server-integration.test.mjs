@@ -74,11 +74,20 @@ test("production server enforces canonical HTTPS and emits security headers", as
       Host: "xchange.oakwoodapps.co.uk",
       "X-Forwarded-Proto": "https",
     });
-    assert.equal(camera.statusCode, 404);
+    assert.equal(camera.statusCode, 200);
     assert.equal(
       camera.headers["permissions-policy"],
       "camera=(self), microphone=(), geolocation=()",
     );
+    assert.match(camera.body, /Fiyatı çerçeveye getir/);
+    assert.match(camera.body, /name="robots" content="noindex, follow"/);
+
+    const ocrWorker = await send("/ocr/worker.min.js", {
+      Host: "xchange.oakwoodapps.co.uk",
+      "X-Forwarded-Proto": "https",
+    });
+    assert.equal(ocrWorker.statusCode, 200);
+    assert.match(ocrWorker.headers["content-type"], /javascript/);
 
     const conversion = await send("/convert/try/gbp/1988", {
       Host: "xchange.oakwoodapps.co.uk",

@@ -6,6 +6,8 @@
   --cream: #f4eedf;
   --cream-deep: #e9dfc8;
   --paper: #fffdf8;
+  --green: var(--ink);
+  --muted: #6b8079;
   --lira: #d55b39;
   --pound: #244d91;
   --line: rgba(16, 43, 37, 0.14);
@@ -187,6 +189,35 @@ main {
   white-space: nowrap;
   border: 0;
 }
+
+.camera-entry {
+  min-height: 67px;
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: 38px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border: 1px solid rgba(16, 43, 37, 0.13);
+  border-radius: 17px;
+  background: #eef5ef;
+  color: var(--green);
+  text-decoration: none;
+}
+.camera-entry > span:first-child {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--green);
+  color: white;
+  font-size: 20px;
+}
+.camera-entry strong, .camera-entry small { display: block; }
+.camera-entry strong { font-size: 13px; }
+.camera-entry small { margin-top: 3px; color: var(--muted); font-size: 10px; }
+.camera-entry b { font-size: 18px; }
 
 footer { padding: 21px 2px 2px; }
 .rate-line { display: flex; align-items: center; justify-content: space-between; gap: 14px; }

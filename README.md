@@ -13,6 +13,7 @@ Canlı adres: [xchange.oakwoodapps.co.uk](https://xchange.oakwoodapps.co.uk)
 - Frankfurter üzerinden canlı gösterge kuru; API anahtarı yok
 - Üç saniyelik ağ zaman aşımı ve son geçerli kur yedeği
 - PWA kurulumu ve çevrimdışı uygulama kabuğu
+- Deneysel kamera/fotoğraf OCR ekranı ile TRY ve GBP fiyat okuma
 - Otuz saniyelik yenileme sınırı ve kur veri doğrulaması
 - Sabit hedefli HTTPS yönlendirmesi ve güvenlik başlıkları
 - Windows üzerinde düşük yetkili, korumalı statik servis dağıtımı
@@ -51,5 +52,6 @@ Cloudflare Tunnel kuralları [ops/cloudflared.yml](ops/cloudflared.yml) içinded
 
 - Uygulamada üyelik, ödeme veya kullanıcı hesabı yoktur.
 - Tutarlar sunucuya kaydedilmez.
+- Kamera görüntüsü, seçilen fotoğraf ve OCR metni cihazdan dışarı gönderilmez; OCR motoru yalnızca kullanıcı fiyat okumayı başlattığında yerel dosyalardan yüklenir.
 - Kur sağlayıcısı tarayıcıdan doğrudan çağrılır ve gizli API anahtarı kullanılmaz.
 - Güvenlik bildirimi için [SECURITY.md](SECURITY.md) dosyasını kullanın.

@@ -85,7 +85,8 @@ function requestHeaders(req) {
 
 async function serveDynamic(req, res) {
   if (req.method !== "GET" && req.method !== "HEAD") return false;
-  if (!requestPathname(req).startsWith("/convert/")) return false;
+  const pathname = requestPathname(req);
+  if (pathname !== "/camera" && !pathname.startsWith("/convert/")) return false;
   const requestUrl = new URL(req.url ?? "/", `https://${CANONICAL_HOST}`);
   const response = await applicationWorker.fetch(
     new Request(requestUrl, { method: req.method, headers: requestHeaders(req) }),

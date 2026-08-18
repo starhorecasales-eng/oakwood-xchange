@@ -11,6 +11,7 @@ import {
   parseMoneyText,
   roundMoney,
 } from "../lib/money.ts";
+import { extractPriceCandidates } from "../lib/ocr-price.ts";
 import {
   LEGACY_GBP_TRY_CACHE_KEY,
   loadRateTable,
@@ -98,6 +99,23 @@ test("parses OCR-style prices using the selected currency locale", () => {
   assert.equal(parseMoneyText("1.299", { currency: "GBP" })?.amount, 1.299);
   assert.equal(parseMoneyText("free", { currency: "GBP" }), null);
   assert.equal(parseMoneyText("-£10", { currency: "GBP" }), null);
+});
+
+test("extracts deduplicated price candidates from noisy OCR text", () => {
+  const tryCandidates = extractPriceCandidates(
+    "ÜRÜN 84721  ₺1.299,90  eski 1.499,90 TL  ₺1.299,90",
+    "TRY",
+  );
+  assert.deepEqual(
+    tryCandidates.map((candidate) => candidate.money.amount),
+    [84721, 1299.9, 1499.9],
+  );
+
+  const gbpCandidates = extractPriceCandidates("SALE £1,299.99 / now £899.50", "GBP");
+  assert.deepEqual(
+    gbpCandidates.map((candidate) => candidate.money.amount),
+    [1299.99, 899.5],
+  );
 });
 
 test("builds one rate table and derives reverse and cross rates", () => {
