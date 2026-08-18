@@ -67,7 +67,7 @@ test("ships last-rate fallback and installable offline assets", async () => {
   assert.match(page, /href="\/camera"/);
   assert.match(camera, /navigator\.mediaDevices\.getUserMedia/);
   assert.match(camera, /workerBlobURL: false/);
-  assert.match(camera, /workerPath: "\/ocr\/worker\.min\.js"/);
+  assert.match(camera, /workerPath: "\/ocr\/worker\.min\.js\?v=7\.0\.0-csp2"/);
   assert.match(camera, /Fotoğraf cihazınızda işlenir|Kamera karesi/);
   assert.match(rateCache, /cebimde-kur-rates-v3/);
   assert.match(rateCache, /cebimde-kur-rates-v2/);
