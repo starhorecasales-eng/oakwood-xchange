@@ -133,7 +133,7 @@ export default function CameraScanner() {
     setStatusMessage("OCR motoru hazırlanıyor… İlk kullanım biraz sürebilir.");
     const tesseract = await import("tesseract.js");
     const workerPromise = tesseract.createWorker("eng", tesseract.OEM.LSTM_ONLY, {
-      workerPath: "/ocr/worker.min.js",
+      workerPath: "/ocr/worker.min.js?v=7.0.0-csp2",
       corePath: "/ocr/core",
       langPath: "/ocr/lang",
       workerBlobURL: false,
