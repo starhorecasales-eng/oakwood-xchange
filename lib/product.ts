@@ -8,9 +8,9 @@ export const PRODUCT_IDENTITY = Object.freeze({
 });
 
 export const PRODUCT_COPY = Object.freeze({
-  title: `${PRODUCT_IDENTITY.publicName} — TL ↔ Sterlin`,
-  description: "Türk lirası ve İngiliz sterlini arasında hızlı, iki yönlü döviz çevirici.",
-  socialDescription: "Türkiye’de hızlı fiyat hesabı. TL ve sterlin arasında anında çevir.",
-  manifestDescription: "Türk lirası ve İngiliz sterlini arasında hızlı döviz çevirici.",
+  title: `${PRODUCT_IDENTITY.publicName} — TL, Sterlin ve Euro`,
+  description: "Türk lirası, İngiliz sterlini ve euro arasında hızlı döviz çevirici ve kameralı fiyat okuyucu.",
+  socialDescription: "Türkiye’de hızlı fiyat hesabı. TL, sterlin ve euro arasında yaz veya kamerayla çevir.",
+  manifestDescription: "TL, sterlin ve euro arasında hızlı döviz çevirici ve kameralı fiyat okuyucu.",
   ownerCredit: `${PRODUCT_IDENTITY.ownerName} tarafından hazırlandı.`,
 });

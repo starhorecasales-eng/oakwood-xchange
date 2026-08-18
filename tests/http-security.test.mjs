@@ -9,8 +9,8 @@ import {
   withSecurityHeaders,
 } from "../ops/http-security.mjs";
 
-test("allows WebAssembly only on the camera and local OCR asset routes", () => {
-  assert.doesNotMatch(contentSecurityPolicyForPath("/"), /wasm-unsafe-eval/);
+test("allows WebAssembly only on converter, camera and local OCR asset routes", () => {
+  assert.match(contentSecurityPolicyForPath("/"), /wasm-unsafe-eval/);
   assert.match(contentSecurityPolicyForPath("/camera"), /wasm-unsafe-eval/);
   assert.match(contentSecurityPolicyForPath("/camera/scan"), /wasm-unsafe-eval/);
   assert.match(contentSecurityPolicyForPath("/ocr/worker.min.js"), /wasm-unsafe-eval/);
@@ -48,8 +48,8 @@ test("redirects only canonical public HTTP requests to a fixed HTTPS host", () =
   );
 });
 
-test("keeps camera blocked except on the dedicated future camera route", () => {
-  assert.equal(permissionsPolicyForPath("/"), "camera=(), microphone=(), geolocation=()");
+test("allows camera only on the combined converter and dedicated camera routes", () => {
+  assert.equal(permissionsPolicyForPath("/"), "camera=(self), microphone=(), geolocation=()");
   assert.equal(
     permissionsPolicyForPath("/camera"),
     "camera=(self), microphone=(), geolocation=()",
@@ -74,7 +74,7 @@ test("security headers replace conflicting upstream values", () => {
   assert.equal(headers["content-type"], "text/html; charset=utf-8");
   assert.equal(headers["Strict-Transport-Security"], "max-age=86400");
   assert.equal(headers["X-Frame-Options"], "DENY");
-  assert.equal(headers["Permissions-Policy"], "camera=(), microphone=(), geolocation=()");
+  assert.equal(headers["Permissions-Policy"], "camera=(self), microphone=(), geolocation=()");
   assert.match(headers["Content-Security-Policy"], /frame-ancestors 'none'/);
   assert.equal(headers["x-powered-by"], undefined);
   assert.deepEqual(

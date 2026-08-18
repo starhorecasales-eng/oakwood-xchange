@@ -68,35 +68,48 @@
 .scanner { display: grid; gap: 14px; }
 
 .currencyChoice {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 46px minmax(0, 1fr);
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   padding: 8px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: white;
 }
-.currencyChoice > span {
-  margin-right: auto;
-  padding-left: 4px;
+.currencyChoice label { min-width: 0; }
+.currencyChoice label > span {
+  display: block;
+  margin: 0 0 4px 3px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 8px;
   font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
-.currencyChoice button {
-  min-height: 38px;
-  padding: 0 12px;
-  border: 1px solid transparent;
+.currencyChoice select {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid rgba(16, 43, 37, 0.12);
   border-radius: 10px;
   background: #f3f2ec;
-  color: var(--muted);
+  color: var(--green);
   font-weight: 800;
   cursor: pointer;
 }
-.currencyChoice .selectedCurrency {
-  border-color: rgba(16, 43, 37, 0.16);
+.currencySwap {
+  width: 46px;
+  height: 36px;
+  margin-top: 14px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
   background: var(--green);
   color: white;
+  font-size: 7px;
+  font-weight: 800;
+  cursor: pointer;
 }
 
 .viewport {
@@ -118,7 +131,7 @@
 .placeholder {
   height: 100%;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   place-items: center;
   color: rgba(255, 255, 255, 0.22);
   font: 600 clamp(54px, 15vw, 92px)/1 Georgia, serif;
@@ -261,12 +274,27 @@
 }
 .privacy::before { content: "●"; position: absolute; left: 4px; color: #35a875; }
 
+.compact { gap: 9px; }
+.compact .currencyChoice { padding: 6px; }
+.compact .viewport { aspect-ratio: 16 / 7; border-radius: 15px; }
+.compact .roi { inset: 22% 8%; border-radius: 12px; }
+.compact .roi span { bottom: -22px; font-size: 8px; }
+.compact .status { min-height: 15px; font-size: 9px; line-height: 1.3; }
+.compact .actions { grid-template-columns: 1fr 1fr; gap: 8px; }
+.compact .primaryButton,
+.compact .secondaryButton { min-height: 42px; padding: 0 8px; font-size: 10px; }
+.compact .privacy { margin-top: 0; font-size: 8px; }
+.compact .result { gap: 8px; padding: 10px 11px; border-radius: 14px; }
+.compact .resultAmount small { margin-bottom: 3px; font-size: 7px; }
+.compact .resultAmount strong,
+.compact .resultAmount b { font-size: clamp(18px, 5vw, 24px); }
+.compact .resultConverted b { font-size: clamp(21px, 6vw, 28px); }
+
 @media (max-width: 480px) {
   .page { padding: 0; }
   .shell { min-height: 100svh; border: 0; border-radius: 0; padding: 20px 16px 28px; }
   .actions { grid-template-columns: 1fr; }
-  .currencyChoice { flex-wrap: wrap; }
-  .currencyChoice > span { width: 100%; }
+  .compact .actions { grid-template-columns: 1fr 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -6,7 +6,7 @@ import styles from "./CameraScanner.module.css";
 
 export const metadata: Metadata = {
   title: `Kamerayla fiyat oku | ${PRODUCT_IDENTITY.publicName}`,
-  description: "Telefon kamerasıyla görünen bir fiyatı cihaz üzerinde okuyup TL ve sterlin arasında çevirin.",
+  description: "Telefon kamerasıyla görünen bir fiyatı cihaz üzerinde okuyup TL, sterlin ve euro arasında çevirin.",
   robots: { index: false, follow: true },
 };
 

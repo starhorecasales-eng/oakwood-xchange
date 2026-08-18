@@ -8,8 +8,20 @@ import { loadRateTable, saveRateTable } from "@/lib/rate-cache";
 import { convertMoney, PACKAGED_RATE_TABLE, type RateTable } from "@/lib/rates";
 import styles from "./CameraScanner.module.css";
 
-type ScannerCurrency = "TRY" | "GBP";
+const SCANNER_CURRENCIES = ["TRY", "GBP", "EUR"] as const;
+type ScannerCurrency = (typeof SCANNER_CURRENCIES)[number];
 type ScannerState = "idle" | "requesting" | "ready" | "recognizing" | "result" | "error";
+
+type CameraScannerProps = {
+  compact?: boolean;
+  rateTable?: RateTable;
+};
+
+const SCANNER_LABELS: Record<ScannerCurrency, string> = {
+  TRY: "₺ TRY",
+  GBP: "£ GBP",
+  EUR: "€ EUR",
+};
 
 type OcrWorker = {
   recognize(image: Blob): Promise<{ data: { text: string } }>;
@@ -54,7 +66,7 @@ function enhanceCanvas(canvas: HTMLCanvasElement) {
   context.putImageData(image, 0, 0);
 }
 
-export default function CameraScanner() {
+export default function CameraScanner({ compact = false, rateTable: suppliedRateTable }: CameraScannerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -64,15 +76,16 @@ export default function CameraScanner() {
 
   const [scannerState, setScannerState] = useState<ScannerState>("idle");
   const [sourceCurrency, setSourceCurrency] = useState<ScannerCurrency>("TRY");
-  const [rateTable, setRateTable] = useState<RateTable>(PACKAGED_RATE_TABLE);
+  const [targetCurrency, setTargetCurrency] = useState<ScannerCurrency>("GBP");
+  const [localRateTable, setLocalRateTable] = useState<RateTable>(PACKAGED_RATE_TABLE);
   const [progress, setProgress] = useState(0);
-  const [statusMessage, setStatusMessage] = useState("Kamera yalnızca siz istediğinizde açılır.");
+  const [statusMessage, setStatusMessage] = useState("");
   const [rawText, setRawText] = useState("");
   const [candidates, setCandidates] = useState<PriceCandidate[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  const targetCurrency: ScannerCurrency = sourceCurrency === "TRY" ? "GBP" : "TRY";
+  const rateTable = suppliedRateTable ?? localRateTable;
   const selected = candidates[selectedIndex] ?? null;
   const converted = useMemo(
     () => selected
@@ -89,18 +102,29 @@ export default function CameraScanner() {
 
   useEffect(() => {
     mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      stopCamera();
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+      void workerRef.current?.terminate();
+      workerRef.current = null;
+    };
+  }, [stopCamera]);
+
+  useEffect(() => {
+    if (suppliedRateTable) return;
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 3000);
     const hydrateRates = async () => {
       await Promise.resolve();
       if (!mountedRef.current) return;
       const cached = loadRateTable(localStorage);
-      if (cached) setRateTable(cached);
+      if (cached) setLocalRateTable(cached);
 
       try {
         const latest = await fetchLatestRateTable(controller.signal);
         if (!mountedRef.current) return;
-        setRateTable(latest);
+        setLocalRateTable(latest);
         saveRateTable(localStorage, latest);
       } catch {
         // The packaged or last cached table keeps conversion immediately usable.
@@ -111,15 +135,10 @@ export default function CameraScanner() {
     void hydrateRates();
 
     return () => {
-      mountedRef.current = false;
       controller.abort();
       window.clearTimeout(timeout);
-      stopCamera();
-      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
-      void workerRef.current?.terminate();
-      workerRef.current = null;
     };
-  }, [stopCamera]);
+  }, [suppliedRateTable]);
 
   const updatePreview = (blob: Blob) => {
     if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
@@ -292,7 +311,8 @@ export default function CameraScanner() {
     }
   };
 
-  const changeCurrency = (currency: ScannerCurrency) => {
+  const changeSourceCurrency = (currency: ScannerCurrency) => {
+    if (currency === targetCurrency) setTargetCurrency(sourceCurrency);
     setSourceCurrency(currency);
     if (rawText) {
       const found = extractPriceCandidates(rawText, currency);
@@ -301,21 +321,56 @@ export default function CameraScanner() {
     }
   };
 
+  const changeTargetCurrency = (currency: ScannerCurrency) => {
+    if (currency === sourceCurrency) {
+      const previousTarget = targetCurrency;
+      setSourceCurrency(previousTarget);
+      if (rawText) {
+        const found = extractPriceCandidates(rawText, previousTarget);
+        setCandidates(found);
+        setSelectedIndex(0);
+      }
+    }
+    setTargetCurrency(currency);
+  };
+
+  const swapCurrencies = () => {
+    const previousSource = sourceCurrency;
+    setSourceCurrency(targetCurrency);
+    setTargetCurrency(previousSource);
+    if (rawText) {
+      const found = extractPriceCandidates(rawText, targetCurrency);
+      setCandidates(found);
+      setSelectedIndex(0);
+    }
+  };
+
   return (
-    <div className={styles.scanner}>
+    <div className={`${styles.scanner} ${compact ? styles.compact : ""}`}>
       <div className={styles.currencyChoice} aria-label="Fotoğraftaki para birimi">
-        <span>Fotoğraftaki para:</span>
-        {(["TRY", "GBP"] as const).map((currency) => (
-          <button
-            key={currency}
-            type="button"
-            className={sourceCurrency === currency ? styles.selectedCurrency : ""}
-            onClick={() => changeCurrency(currency)}
-            aria-pressed={sourceCurrency === currency}
+        <label>
+          <span>Fiyat</span>
+          <select
+            value={sourceCurrency}
+            onChange={(event) => changeSourceCurrency(event.target.value as ScannerCurrency)}
           >
-            {currency === "TRY" ? "₺ TRY" : "£ GBP"}
-          </button>
-        ))}
+            {SCANNER_CURRENCIES.map((currency) => (
+              <option key={currency} value={currency}>{SCANNER_LABELS[currency]}</option>
+            ))}
+          </select>
+        </label>
+        <button type="button" className={styles.currencySwap} onClick={swapCurrencies} aria-label="Kamera para birimlerinin yerini değiştir">Değiştir</button>
+        <label>
+          <span>Sonuç</span>
+          <select
+            value={targetCurrency}
+            onChange={(event) => changeTargetCurrency(event.target.value as ScannerCurrency)}
+          >
+            {SCANNER_CURRENCIES.map((currency) => (
+              <option key={currency} value={currency}>{SCANNER_LABELS[currency]}</option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {selected && converted && (
@@ -355,7 +410,7 @@ export default function CameraScanner() {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={previewUrl} alt="OCR için hazırlanan fotoğraf" />
         ) : (
-          <div className={styles.placeholder} aria-hidden="true"><span>₺</span><span>£</span></div>
+          <div className={styles.placeholder} aria-hidden="true"><span>₺</span><span>£</span><span>€</span></div>
         )}
         {(scannerState === "ready" || scannerState === "requesting") && (
           <div className={styles.roi} aria-hidden="true"><span>FİYATI BURAYA GETİRİN</span></div>
@@ -364,10 +419,12 @@ export default function CameraScanner() {
 
       <canvas ref={canvasRef} hidden />
 
-      <p className={styles.status} role="status">
-        {statusMessage}
-        {scannerState === "recognizing" && <span>{progress}%</span>}
-      </p>
+      {(statusMessage || scannerState === "recognizing") && (
+        <p className={styles.status} role="status">
+          {statusMessage}
+          {scannerState === "recognizing" && <span>{progress}%</span>}
+        </p>
+      )}
 
       {scannerState === "ready" ? (
         <button type="button" className={styles.primaryButton} onClick={() => void captureCamera()}>
@@ -384,7 +441,7 @@ export default function CameraScanner() {
             {scannerState === "requesting" ? "Kamera açılıyor…" : "Kamerayı aç"}
           </button>
           <label className={styles.secondaryButton}>
-            Fotoğraf çek veya seç
+            Fotoğraf seç
             <input
               type="file"
               accept="image/*"
@@ -396,7 +453,7 @@ export default function CameraScanner() {
         </div>
       )}
 
-      <p className={styles.privacy}>Kamera karesi ve OCR metni bu cihazdan gönderilmez.</p>
+      <p className={styles.privacy}>Fotoğraflar cihazında kalır.</p>
     </div>
   );
 }
