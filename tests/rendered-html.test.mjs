@@ -42,8 +42,9 @@ test("server-renders an immediately usable GBP/TRY converter", async () => {
 });
 
 test("ships last-rate fallback and installable offline assets", async () => {
-  const [page, layout, rateCache, rates, provider, manifest, serviceWorker] = await Promise.all([
+  const [page, camera, layout, rateCache, rates, provider, manifest, serviceWorker] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/camera/CameraScanner.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/rate-cache.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/rates.ts", import.meta.url), "utf8"),
@@ -63,6 +64,11 @@ test("ships last-rate fallback and installable offline assets", async () => {
   assert.match(page, /renderCurrencyBlock\(currencyOrder\[0\]\)/);
   assert.match(page, /renderCurrencyBlock\(currencyOrder\[1\]\)/);
   assert.match(page, /aria-live="polite"/);
+  assert.match(page, /href="\/camera"/);
+  assert.match(camera, /navigator\.mediaDevices\.getUserMedia/);
+  assert.match(camera, /workerBlobURL: false/);
+  assert.match(camera, /workerPath: "\/ocr\/worker\.min\.js"/);
+  assert.match(camera, /Fotoğraf cihazınızda işlenir|Kamera karesi/);
   assert.match(rateCache, /cebimde-kur-rates-v3/);
   assert.match(rateCache, /cebimde-kur-rates-v2/);
   assert.match(rateCache, /cebimde-kur-gbp-try/);
@@ -85,6 +91,9 @@ test("ships last-rate fallback and installable offline assets", async () => {
     access(new URL("../public/icon-180.png", import.meta.url)),
     access(new URL("../public/icon-192.png", import.meta.url)),
     access(new URL("../public/icon-512.png", import.meta.url)),
+    access(new URL("../public/ocr/worker.min.js", import.meta.url)),
+    access(new URL("../public/ocr/core/tesseract-core-lstm.wasm.js", import.meta.url)),
+    access(new URL("../public/ocr/lang/eng.traineddata.gz", import.meta.url)),
   ]);
 });
 

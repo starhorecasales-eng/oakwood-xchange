@@ -6,18 +6,21 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev": "vinext dev",
-    "build": "vinext build && node ops/render-static.mjs",
+    "prepare:ocr": "node ops/prepare-ocr-assets.mjs",
+    "dev": "npm run prepare:ocr && vinext dev",
+    "build": "npm run prepare:ocr && vinext build && node ops/render-static.mjs",
     "start": "vinext start",
     "test": "npm run build && node --test tests/*.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@tesseract.js-data/eng": "1.0.0",
     "drizzle-orm": "0.45.2",
     "next": "16.3.0",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "tesseract.js": "7.0.0"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.52.0",

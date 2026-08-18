@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { swapCurrencyPair } from "@/lib/currency";
 import { fetchLatestRateTable } from "@/lib/frankfurter";
@@ -313,6 +314,12 @@ export default function Home() {
           {renderCurrencyBlock(currencyOrder[1])}
           <p className="sr-only" aria-live="polite">{swapAnnouncement}</p>
         </div>
+
+        <Link className="camera-entry" href="/camera">
+          <span aria-hidden="true">▣</span>
+          <span><strong>Kamerayla fiyat oku</strong><small>Fiyatı çek, karşılığını cihazında gör</small></span>
+          <b aria-hidden="true">→</b>
+        </Link>
 
         <footer>
           <div className="rate-line">
