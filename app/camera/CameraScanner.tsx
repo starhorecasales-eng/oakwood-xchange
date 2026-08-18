@@ -318,6 +318,35 @@ export default function CameraScanner() {
         ))}
       </div>
 
+      {selected && converted && (
+        <section className={styles.result} aria-label="Okunan fiyat sonucu">
+          <div className={styles.resultAmount}>
+            <small>OKUNAN FİYAT</small>
+            <strong>{formatMoney(selected.money, "tr-TR")}</strong>
+          </div>
+          <span>yaklaşık</span>
+          <div className={`${styles.resultAmount} ${styles.resultConverted}`}>
+            <small>KARŞILIĞI</small>
+            <b>{formatMoney(converted, "tr-TR")}</b>
+          </div>
+          {candidates.length > 1 && (
+            <div className={styles.candidates}>
+              <p>Başka bir fiyat mı?</p>
+              {candidates.map((candidate, index) => (
+                <button
+                  key={`${candidate.raw}-${candidate.money.amount}`}
+                  type="button"
+                  className={index === selectedIndex ? styles.activeCandidate : ""}
+                  onClick={() => setSelectedIndex(index)}
+                >
+                  {formatMoney(candidate.money, "tr-TR")}
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
       <div className={styles.viewport}>
         {scannerState === "ready" || scannerState === "requesting" ? (
           <video ref={videoRef} muted playsInline autoPlay aria-label="Canlı kamera görüntüsü" />
@@ -365,30 +394,6 @@ export default function CameraScanner() {
             />
           </label>
         </div>
-      )}
-
-      {selected && converted && (
-        <section className={styles.result} aria-label="Okunan fiyat sonucu">
-          <small>SEÇİLEN FİYAT</small>
-          <strong>{formatMoney(selected.money, "tr-TR")}</strong>
-          <span>yaklaşık</span>
-          <b>{formatMoney(converted, "tr-TR")}</b>
-          {candidates.length > 1 && (
-            <div className={styles.candidates}>
-              <p>Başka bir fiyat mı?</p>
-              {candidates.map((candidate, index) => (
-                <button
-                  key={`${candidate.raw}-${candidate.money.amount}`}
-                  type="button"
-                  className={index === selectedIndex ? styles.activeCandidate : ""}
-                  onClick={() => setSelectedIndex(index)}
-                >
-                  {formatMoney(candidate.money, "tr-TR")}
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
       )}
 
       <p className={styles.privacy}>Kamera karesi ve OCR metni bu cihazdan gönderilmez.</p>
