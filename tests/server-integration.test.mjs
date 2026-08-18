@@ -75,6 +75,7 @@ test("production server enforces canonical HTTPS and emits security headers", as
       "X-Forwarded-Proto": "https",
     });
     assert.equal(camera.statusCode, 200);
+    assert.match(camera.headers["content-security-policy"], /wasm-unsafe-eval/);
     assert.equal(
       camera.headers["permissions-policy"],
       "camera=(self), microphone=(), geolocation=()",
@@ -88,6 +89,7 @@ test("production server enforces canonical HTTPS and emits security headers", as
     });
     assert.equal(ocrWorker.statusCode, 200);
     assert.match(ocrWorker.headers["content-type"], /javascript/);
+    assert.match(ocrWorker.headers["content-security-policy"], /wasm-unsafe-eval/);
 
     const conversion = await send("/convert/try/gbp/1988", {
       Host: "xchange.oakwoodapps.co.uk",

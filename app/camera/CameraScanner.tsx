@@ -17,6 +17,8 @@ type OcrWorker = {
   terminate(): Promise<unknown>;
 };
 
+const OCR_INITIALIZATION_TIMEOUT_MS = 45_000;
+
 function cameraErrorMessage(error: unknown) {
   if (error instanceof DOMException && error.name === "NotAllowedError") {
     return "Kamera izni verilmedi. Tarayıcı ayarlarından izin verebilir veya fotoğraf seçebilirsiniz.";
@@ -128,9 +130,9 @@ export default function CameraScanner() {
 
   const getWorker = async () => {
     if (workerRef.current) return workerRef.current;
-    setStatusMessage("OCR ilk kez hazırlanıyor…");
+    setStatusMessage("OCR motoru hazırlanıyor… İlk kullanım biraz sürebilir.");
     const tesseract = await import("tesseract.js");
-    const worker = await tesseract.createWorker("eng", tesseract.OEM.LSTM_ONLY, {
+    const workerPromise = tesseract.createWorker("eng", tesseract.OEM.LSTM_ONLY, {
       workerPath: "/ocr/worker.min.js",
       corePath: "/ocr/core",
       langPath: "/ocr/lang",
@@ -138,9 +140,39 @@ export default function CameraScanner() {
       logger: (message) => {
         if (!mountedRef.current || typeof message.progress !== "number") return;
         setProgress(Math.round(message.progress * 100));
-        setStatusMessage(message.status === "recognizing text" ? "Fiyat aranıyor…" : "OCR hazırlanıyor…");
+        if (message.status === "recognizing text") {
+          setStatusMessage("Fiyat aranıyor…");
+        } else if (message.status.includes("language")) {
+          setStatusMessage("OCR dil modeli indiriliyor…");
+        } else {
+          setStatusMessage("OCR motoru indiriliyor… İlk kullanım biraz sürebilir.");
+        }
       },
     });
+
+    let timeoutId = 0;
+    const initializationTimeout = new Promise<never>((_, reject) => {
+      timeoutId = window.setTimeout(
+        () => reject(new Error("OCR initialization timed out")),
+        OCR_INITIALIZATION_TIMEOUT_MS,
+      );
+    });
+
+    let worker;
+    try {
+      worker = await Promise.race([workerPromise, initializationTimeout]);
+    } catch (error) {
+      void workerPromise.then((lateWorker) => lateWorker.terminate()).catch(() => undefined);
+      throw error;
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+
+    if (!mountedRef.current) {
+      await worker.terminate();
+      throw new Error("OCR initialization cancelled");
+    }
+
     await worker.setParameters({
       tessedit_char_whitelist: "0123456789.,' ₺£€$TRYGBPEURUSD",
       tessedit_pageseg_mode: tesseract.PSM.SPARSE_TEXT,
@@ -170,10 +202,14 @@ export default function CameraScanner() {
           ? `${found.length} fiyat adayı bulundu.`
           : "Fiyat okunamadı. Daha yakından ve düz açıyla tekrar deneyin.",
       );
-    } catch {
+    } catch (error) {
       if (!mountedRef.current) return;
       setScannerState("error");
-      setStatusMessage("OCR çalıştırılamadı. İnternet bağlantısını kontrol edip tekrar deneyin.");
+      setStatusMessage(
+        error instanceof Error && error.message === "OCR initialization timed out"
+          ? "OCR motoru zamanında hazırlanamadı. Bağlantıyı kontrol edip fotoğrafı yeniden seçin."
+          : "OCR çalıştırılamadı. Bağlantıyı kontrol edip fotoğrafı yeniden seçin.",
+      );
     }
   };
 
