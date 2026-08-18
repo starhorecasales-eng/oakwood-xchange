@@ -101,7 +101,7 @@
 
 .viewport {
   position: relative;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 16 / 8;
   overflow: hidden;
   border-radius: 22px;
   background: #0c1e1a;
@@ -121,12 +121,12 @@
   grid-template-columns: 1fr 1fr;
   place-items: center;
   color: rgba(255, 255, 255, 0.22);
-  font: 600 clamp(70px, 20vw, 120px)/1 Georgia, serif;
+  font: 600 clamp(54px, 15vw, 92px)/1 Georgia, serif;
 }
 
 .roi {
   position: absolute;
-  inset: 31% 9%;
+  inset: 25% 9%;
   border: 2px solid rgba(255, 255, 255, 0.9);
   border-radius: 16px;
   box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.28);
@@ -198,25 +198,44 @@
 }
 
 .result {
-  padding: 20px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: end;
+  gap: 12px;
+  padding: 15px 16px;
   border: 1px solid rgba(16, 43, 37, 0.12);
-  border-radius: 20px;
+  border-radius: 17px;
   background: #eef5ef;
-  text-align: center;
 }
-.result > small,
-.result > strong,
-.result > span,
-.result > b { display: block; }
-.result > small { color: var(--muted); font-size: 9px; font-weight: 850; letter-spacing: 0.14em; }
-.result > strong { margin-top: 8px; color: var(--ink); font-size: 25px; }
-.result > span { margin: 8px 0 2px; color: var(--muted); font-size: 11px; }
-.result > b { color: var(--green); font-size: clamp(31px, 9vw, 48px); letter-spacing: -0.05em; }
+.resultAmount { min-width: 0; }
+.resultAmount small,
+.resultAmount strong,
+.resultAmount b { display: block; }
+.resultAmount small {
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+}
+.resultAmount strong,
+.resultAmount b {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: clamp(20px, 5vw, 28px);
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+.resultConverted { text-align: right; }
+.resultConverted b { color: var(--green); font-size: clamp(24px, 6vw, 34px); }
+.result > span { padding-bottom: 3px; color: var(--muted); font-size: 9px; }
 
 .candidates {
-  margin-top: 18px;
-  padding-top: 14px;
+  grid-column: 1 / -1;
+  margin-top: 3px;
+  padding-top: 11px;
   border-top: 1px solid rgba(16, 43, 37, 0.12);
+  text-align: center;
 }
 .candidates p { margin: 0 0 9px; color: var(--muted); font-size: 11px; }
 .candidates button {

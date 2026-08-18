@@ -1,55 +1,46 @@
-# Cebimde Kur Brand Integration — Design QA
+# Camera Result Hierarchy — Design QA
 
-- Source visual truth: `public/brand/logo-primary-no-tagline.svg` and `public/brand/app-icon.svg`
-- Upstream source: `https://github.com/erkanaltuntastr-cmyk/cebimde-kur-assets/tree/main/brand`
-- Implementation screenshot: `outputs/brand-qa/design-qa-mobile.png`
-- Focused header capture: `outputs/brand-qa/design-qa-header.png`
-- Combined comparison: `outputs/brand-qa/design-qa-comparison.png`
-- Viewport: 390 × 844 CSS px
-- Implementation pixels: 390 × 844
-- Device pixel ratio: 1
-- Source logo pixels: 1500 × 500
-- Source app icon pixels: 1024 × 1024
-- Generated PWA icon reviewed at: 512 × 512
-- State: mobile converter, live rate, TRY input active, install prompt unavailable in the test browser
+- Source visual truth: `C:/Users/WebApp/Documents/Codex/2026-08-12/ben-u-anda-t-rkiye-deyim/.codex-remote-attachments/019ff4e0-bb76-70d0-bac0-655a4d2a6def/dccfb866-2706-4478-a6e1-bac82feeaf7e/1-Photo-1.jpg`
+- Implementation screenshot: `C:/Users/WebApp/.codex/visualizations/2026/08/12/019ff4e0-bb76-70d0-bac0-655a4d2a6def/camera-result-compact-qa.png`
+- Combined comparison: `C:/Users/WebApp/.codex/visualizations/2026/08/12/019ff4e0-bb76-70d0-bac0-655a4d2a6def/camera-result-comparison-qa.png`
+- Viewport: 464 × 1234 CSS px for app-owned content
+- Source pixels: 464 × 1344; the top 110 px of browser chrome were excluded, leaving a normalized 464 × 1234 comparison region
+- Implementation pixels: 464 × 1234 at device pixel ratio 1
+- State: OCR result, TRY selected, one `9000.00` candidate, GBP conversion visible, captured-photo preview
 
 ## Full-view comparison evidence
 
-The mobile screen keeps the existing converter hierarchy, spacing, cards, controls, rate detail, disclaimer and credit unchanged. The new compact logo sits in the existing header space without horizontal overflow or collision with the live-rate status pill. The page has no horizontal overflow at 390 px.
+The normalized side-by-side comparison shows that the converter header, currency selector, colors, radii and mobile shell remain consistent with the supplied screen. The result now appears immediately after the currency selector and before the image. The image changed from a tall 4:3 region to a compact 2:1 region, so the result, photo, status and primary action fit into a much shorter scan path.
 
-## Focused comparison evidence
+## Focused region comparison evidence
 
-The focused header comparison preserves the source artwork's dark-green scan frame, coral `CEBİMDE`, dark-green `KUR`, cream symbols and blue lower-right corner. The PWA export preserves the icon artwork and uses a full-bleed dark-green background so Android and iOS can apply their own circle or squircle masks without transparent corner halos.
-
-Focused review was required because the header logo and currency marks are too small to judge reliably from the full mobile screenshot alone.
+The result and photo region is large enough to judge in the full 464 px comparison, so a separate magnified crop was not required. Both monetary values remain readable on one row, the `yaklaşık` relationship is visible between them, the photographed `9000.00` remains centered, and no amount or label is clipped.
 
 ## Required fidelity surfaces
 
-- Fonts and typography: source SVG font declarations and weights are preserved; the compact lockup remains legible at 172 px wide.
-- Spacing and layout rhythm: the logo and status pill fit on one row; existing shell padding and vertical rhythm are unchanged.
-- Colors and visual tokens: `#102B25`, `#D55B39`, `#244D91`, `#F4EEDF` and `#FFFDF8` match the supplied brand palette.
-- Image quality and asset fidelity: SVG masters are used directly in the UI; 180, 192 and 512 PNG exports were generated from the master at high quality. No placeholder, emoji or CSS reconstruction is used.
-- Copy and content: the logo reads `CEBİMDE KUR`; converter copy and labels remain unchanged.
+- Fonts and typography: the existing family and weight system is preserved. Monetary values have stronger optical weight than their 8 px uppercase labels, with no wrapping at the reference width.
+- Spacing and layout rhythm: the result uses a balanced three-column grid and 15 px internal padding. The photo height is reduced by roughly one third while retaining the existing 22 px radius and section spacing.
+- Colors and visual tokens: the result retains the established pale-green background, dark-green values, muted labels and cream page surface.
+- Image quality and asset fidelity: the original captured image remains the preview source and uses the existing grayscale/contrast treatment. The shorter container changes only the visible crop; OCR still processes the prepared full image.
+- Copy and content: `OKUNAN FİYAT`, `yaklaşık` and `KARŞILIĞI` communicate the relationship without adding product claims or changing the privacy message.
 
 ## Findings
 
-No actionable P0, P1 or P2 visual differences were found.
-
-The app-icon source has transparent rounded corners, while installed PWA exports use full-bleed dark green. This is an intentional platform adaptation rather than design drift: the operating system supplies the final icon mask.
+No actionable P0, P1 or P2 visual differences remain. Moving the result and shortening the photo are intentional deviations requested by the user, not fidelity regressions.
 
 ## Primary interactions tested
 
-- Entering `2500` TRY updated the GBP result to `38,73`.
-- The swap-direction control moved the active state to GBP without losing either amount.
-- The page loaded at the phone viewport with no horizontal overflow.
-- Browser console errors and warnings: none.
+- The result state rendered with TRY selected and the expected GBP conversion.
+- Currency buttons, camera action and photo-selection action remained present in the accessibility tree.
+- The page produced no browser console errors.
+- Production build, 22 automated tests, lint and TypeScript checks passed.
 
 ## Comparison history
 
-The first formal source-to-implementation comparison passed with no P0/P1/P2 fixes required. Before formal QA, the icon generation path exposed a Windows character-encoding problem; the renderer was fixed to read the SVG as UTF-8 and the icons were regenerated before comparison.
+Initial evidence showed the conversion result below the photo and both action buttons, requiring vertical scrolling. The first implementation pass moved the result above the image, converted it to a compact horizontal card and changed the viewport from 4:3 to 2:1. The post-fix combined comparison shows the result above the fold with no clipping or hierarchy regression; no further P0/P1/P2 changes were required.
 
 ## Follow-up polish
 
-No blocking polish remains. The tagline version stays available for wider marketing placements, while the no-tagline lockup is intentionally used in the compact mobile header.
+No blocking polish remains. Very large future amounts with substantially more digits may merit a dedicated extreme-value responsive test.
 
 final result: passed
