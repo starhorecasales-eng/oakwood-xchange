@@ -23,7 +23,7 @@
     "tesseract.js": "7.0.0"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "1.52.0",
+    "@cloudflare/vite-plugin": "1.54.7",
     "@cloudflare/workers-types": "5.20260814.1",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
@@ -39,7 +39,7 @@
     "typescript": "5.9.3",
     "vinext": "0.0.50",
     "vite": "8.2.1",
-    "wrangler": "4.122.0"
+    "wrangler": "4.131.0"
   },
   "type": "module"
 }
